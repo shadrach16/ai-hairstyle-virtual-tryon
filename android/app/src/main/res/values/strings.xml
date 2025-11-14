@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hair Studio</string>
+    <string name="title_activity_main">Hair Studio</string>
+    <string name="package_name">com.hairstudio.app</string>
+    <string name="custom_url_scheme">com.hairstudio.app</string>
+     <string name="server_client_id">277509378777-jijkrq35ve69kcine944hdvi3mv31qkm.apps.googleusercontent.com</string> 
+</resources>

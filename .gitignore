@@ -1,0 +1,92 @@
+# ---------------------------------------------------
+# .gitignore for Full-Stack (React/Node.js/Capacitor)
+# ---------------------------------------------------
+
+# 1. Dependency and Build Artifacts
+###################################
+/node_modules
+/dist
+/build
+/coverage
+/out
+.next/
+*.tsbuildinfo
+
+# Dependency files specific to package managers
+# (Covers npm, yarn, and pnpm)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log
+lerna-debug.log*
+pnpm-debug.log*
+.pnp
+.pnp.js
+/pnpm-lock.yaml
+.yarn/cache
+.yarn/unplugged
+
+# Separate dependency folders if running a monorepo structure (client/server)
+/server/node_modules
+/client/node_modules
+
+# 2. Environment and Configuration (CRITICAL: NEVER COMMIT THESE)
+#################################################################
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+*.local
+/certs
+# Firebase/Google Service Keys
+*.json
+google-services.json
+hair-studio-a9654-firebase-adminsdk-fbsvc-d632781b15.json
+afro-ai-473921-fc6ff01dda3c.json
+
+# 3. Runtime, Logs, and Temporary Files
+#######################################
+# Logs
+logs
+*.log
+/logs/
+
+# Temporary and Process Files
+/tmp/
+/temp/
+*.pid
+*.seed
+*.log.swp
+dist-ssr
+/reports
+/test-results
+/.nyc_output
+
+# 4. IDE and OS Files
+#####################
+# Operating System
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors (VS Code, IntelliJ, etc.)
+.vscode/
+# Allow VS Code settings/extensions to be tracked if needed for team collaboration
+!.vscode/extensions.json
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 5. Capacitor/Mobile Specific Files
+####################################
+# Core native project files (these are generated and should NOT be tracked)
+/android/
+/ios/
+/www/
+capacitor.config.ts
