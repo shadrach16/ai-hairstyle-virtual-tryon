@@ -12,7 +12,7 @@
 ## 📸 The Result (Before & After)
 
 <div align="center">
-  <img src="./assets/2025-11-18 23_58_01-Hair Studio - AI Hairstyle Try-On" alt="AI Hairstyle Transformation Example" width="800">
+  <img src="https://github.com/shadrach16/ai-hairstyle-virtual-tryon/blob/main/assets/hair-transformation.png" alt="AI Hairstyle Transformation Example" width="800">
   <p><em>Figure 1: Original Selfie vs. AI Generated "Bob Cut" with color adaptation.</em></p>
 </div>
 
