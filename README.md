@@ -1,45 +1,67 @@
-Hair Studio: AI Hairstyle Try-On Platform
+# 💇‍♀️ AI Hairstyle Studio: Virtual Try-On SaaS
 
-`Hair Studio is a full-stack, cross-platform application that leverages AI image generation to allow users to virtually try on new hairstyles.
-This repository contains the complete codebase, showcasing a production-ready system that integrates secure monetization, a robust Node.js API, and a unified React codebase deployed to both the web and native mobile platforms (iOS/Android) via Capacitor.`
+![Status](https://img.shields.io/badge/Status-Live_SaaS-success)
+![AI Model](https://img.shields.io/badge/Model-Stable_Diffusion_Inpainting-blue)
+![Payment](https://img.shields.io/badge/Payment-Paystack_|_Dodo_Payments-green)
 
+> **"Stop guessing. Start seeing."**
+> A B2C SaaS platform that allows users to upload a selfie and realistically "try on" hundreds of hairstyles using Generative AI before visiting the salon.
 
-This guide assumes you have Node.js (v18+) and npm installed.
-1. Backend Setup
-    1. Navigate to the API directory (e.g., server/).
-    2. Install dependencies:
-       npm install
-       
-    3. Create a .env file in the root of the API directory and add your environment variables (e.g., MONGO_URI, JWT_SECRET, REVENUECAT_WEBHOOK_TOKEN, AI_API_KEY).
-       # Example .env structure
-       MONGO_URI="mongodb://localhost:27017/hairstudio_db"
-       JWT_SECRET="YOUR_STRONG_SECRET"
-       # ... other keys (Google OAuth, AI service credentials)
-       
-    4. Start the API server:
-       npm run dev
-       
-2. Frontend Setup
-    1. Navigate to the client directory (e.g., client/ or src/).
-    2. Install dependencies:
-       npm install
-       
-    3. Start the React development server:
-       npm start # or npm run dev
-       
-3. Mobile Deployment (Capacitor)
-    1. Install the Capacitor CLI globally:
-       npm install -g @capacitor/cli
-       
-    2. Build the web application:
-       npm run build
-       
-    3. Copy web assets to native projects:
-       npx cap copy
-       
-    4. Open the native IDE (e.g., Android Studio or Xcode):
-       npx cap open ios # or npx cap open android
-       
-       Note: This step requires a full build setup for the respective platforms.
+---
 
+## 📸 The Result (Before & After)
 
+<div align="center">
+  <img src="./assets/2025-11-18 23_58_01-Hair Studio - AI Hairstyle Try-On" alt="AI Hairstyle Transformation Example" width="800">
+  <p><em>Figure 1: Original Selfie vs. AI Generated "Bob Cut" with color adaptation.</em></p>
+</div>
+
+---
+
+## 🚀 Project Overview
+
+**ChangeYourHairstyle** is a direct-to-consumer web application solving a common anxiety: *"Will this haircut look good on me?"*
+
+Unlike simple overlay apps (which just paste a png sticker on a face), this application uses **Stable Diffusion In-painting** to generate hair that respects the user's head shape, lighting conditions, and skin tone for a hyper-realistic result.
+
+---
+
+## 💰 Monetization & Business Logic
+
+This project is not just code; it is a functioning business.
+* **Credit System:** Users purchase "Makeover Credits" packs (e.g., 5 styles for ₦2,000).
+* **Payment Integration:**
+    * **Paystack:** For seamless Naira (NGN) transactions.
+    * **Dodo Payments:** For cross-border/crypto payments.
+* **Webhook Architecture:** Securely listens for payment success events to instantly top up the user's wallet in the database.
+
+---
+
+## ✨ Key Features
+
+### 1. AI-Driven "In-Painting"
+The core engine identifies the hair region of the uploaded image and uses a Generative Adversarial Network (GAN) / Diffusion model to "repaint" that specific area with the requested texture (e.g., Braids, Afro, Straight) while keeping the face unchanged.
+
+### 2. Custom Style Prompting
+Users aren't limited to presets. They can type "Messy bun with pink highlights" and the Node.js backend translates this into an optimized prompt for the AI model.
+
+### 3. Progressive Web App (PWA)
+Optimized for mobile browsers, allowing users to install it as a native-like app on Android/iOS.
+
+---
+
+## 🛠️ Tech Stack
+
+* **Frontend:** `React.js` (State management for image uploads and gallery).
+* **Backend:** `Node.js` / `Express` (API orchestration).
+* **AI Engine:** Integration with Stable Diffusion API (via Replicate or custom Python flask server).
+* **Database:** `MongoDB` (User profiles, credit ledger, image history).
+* **Storage:** `Cloudinary` / `AWS S3` (Temporary storage for generated images).
+
+---
+
+## 👨‍💻 Developer Role
+
+**Tunde Oluwamo**
+*Full Stack Developer & SaaS Founder*
+[ linkedin.com/in/oluwamo-shadrach-740242185 ]

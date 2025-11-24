@@ -409,7 +409,7 @@ export default function AfricanHairstyleGrid({
 
         {/* Pagination Controls */}
         {!currentHook.isLoading && currentHook.totalPages > 1 && (
-          <div className="p-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600 bg-white flex-shrink-0">
+          <div className="px-4 py-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600 bg-white flex-shrink-0">
             <Button
               variant="outline"
               size="sm"

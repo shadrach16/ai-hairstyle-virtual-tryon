@@ -1,6 +1,8 @@
 // src/App.tsx
 
 import React, { useEffect, useRef } from 'react';
+// 1. Import HelmetProvider
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,296 +19,256 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
 import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app';
 
-console.log('[App Init] Top-level script execution start.');
 
 const queryClient = new QueryClient();
 
 let hasInitialized = false;
-console.log(`[App Init] Initial hasInitialized: ${hasInitialized}`);
 
 const setStatusBarAppearance = async () => {
-  console.log('[App Init] Setting Status Bar Appearance...');
-  if (!Capacitor.isNativePlatform()) {
-      console.log('[App Init] Not native platform, skipping status bar setup.');
-      return;
-  }
-  try {
-    await StatusBar.show();
-    await StatusBar.setBackgroundColor({ color: '#d97706' });
-    await StatusBar.setStyle({ style: Style.Dark });
-    await StatusBar.setOverlaysWebView({ overlay: false });
-    console.log('[App Init] Status Bar appearance set.');
-  } catch (e) {
-      console.error("[App Init] Error setting status bar:", e);
-  }
+ if (!Capacitor.isNativePlatform()) {
+   console.log('[App Init] Not native platform, skipping status bar setup.');
+   return;
+ }
+ try {
+  await StatusBar.show();
+  await StatusBar.setBackgroundColor({ color: '#d97706' });
+  await StatusBar.setStyle({ style: Style.Dark });
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  console.log('[App Init] Status Bar appearance set.');
+ } catch (e) {
+   console.error("[App Init] Error setting status bar:", e);
+ }
 };
 
 const checkAndRequestStoragePermission = async () => {
-  console.log('[App Init] Checking storage permission...');
-  if (Capacitor.getPlatform() !== 'android') {
-      console.log('[App Init] Not Android, skipping storage permission check.');
-      return true;
+ if (Capacitor.getPlatform() !== 'android') {
+   return true;
+ }
+ try {
+  let status = await Filesystem.checkPermissions();
+  if (status.publicStorage !== 'granted') {
+   status = await Filesystem.requestPermissions();
+   return status.publicStorage === 'granted';
   }
-  try {
-    let status = await Filesystem.checkPermissions();
-    console.log(`[App Init] Initial storage permission status: ${status.publicStorage}`);
-    if (status.publicStorage !== 'granted') {
-      console.log('[App Init] Requesting storage permission...');
-      status = await Filesystem.requestPermissions();
-      console.log(`[App Init] Storage permission result: ${status.publicStorage}`);
-      return status.publicStorage === 'granted';
-    }
-    console.log('[App Init] Storage permission already granted.');
-    return true;
-  } catch (e) {
-    console.error('[App Init] Error checking/requesting storage permissions:', e);
-    return false;
-  }
+  return true;
+ } catch (e) {
+  return false;
+ }
 };
 
 // Run initialization only once
 if (!hasInitialized && Capacitor.isNativePlatform()) {
-    console.log("[App Init] Running one-time native initialization...");
-    if (import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-        console.log("[App Init] Initializing SocialLogin...");
-        SocialLogin.initialize({
-             google: {
-               webClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-             }
-        })
-        .then(() => console.log("[App Init] SocialLogin initialized successfully."))
-        .catch(e => console.error("[App Init] SocialLogin Init Error:", e));
-    } else {
-        console.warn("[App Init] VITE_GOOGLE_CLIENT_ID not found, SocialLogin not initialized.");
-    }
-    setStatusBarAppearance();
-    checkAndRequestStoragePermission();
-    hasInitialized = true;
-    console.log(`[App Init] Native initialization complete. hasInitialized: ${hasInitialized}`);
+  if (import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+    SocialLogin.initialize({
+       google: {
+        webClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+       }
+    })
+    .then(() => console.log("[App Init] SocialLogin initialized successfully."))
+    .catch(e => console.error("[App Init] SocialLogin Init Error:", e));
+  } else {
+    console.warn("[App Init] VITE_GOOGLE_CLIENT_ID not found, SocialLogin not initialized.");
+  }
+  setStatusBarAppearance();
+  checkAndRequestStoragePermission();
+  hasInitialized = true;
 } else {
-    console.log(`[App Init] Skipping native initialization (hasInitialized: ${hasInitialized}, isNative: ${Capacitor.isNativePlatform()})`);
+  console.log(`[App Init] Skipping native initialization (hasInitialized: ${hasInitialized}, isNative: ${Capacitor.isNativePlatform()})`);
 }
 
-// --- AppRoutes Component ---
+// 2. SEO Helper Component (used by pages)
+interface SeoProps {
+ title: string;
+ description: string;
+ keywords?: string;
+ image?: string;
+}
+
+const Seo = ({ title, description, keywords, image }: SeoProps) => (
+ <Helmet>
+  <title>{title} | Hair Studio AI Try-On</title>
+  <meta name="description" content={description} />
+  {keywords && <meta name="keywords" content={keywords} />}
+  {/* Open Graph / Social Sharing Tags */}
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:type" content="website" />
+  {image && <meta property="og:image" content={image} />}
+  <meta property="twitter:card" content="summary_large_image" />
+  {/* Ensure a canonical URL is set if your pages are reachable via multiple routes */}
+ </Helmet>
+);
+
+
+// 3. SEO-Wrapped Pages (Assumes LandingPage and Index are the main entry points)
+
+// Wrapper for the Landing Page
+const LandingPageWithSeo = () => (
+ <>
+  <Seo
+   title="Download the Ultimate AI Hair Try-On App"
+   description="Get the Hair Studio app! Virtually try on haircuts, colors, and styles using advanced AI technology. Find your perfect look before your salon visit."
+   keywords="AI hair try-on app, virtual hair studio, hair color changer, haircut simulator, download hair app"
+  />
+  <LandingPage />
+ </>
+);
+
+// Wrapper for the Main App (Index) Page
+const IndexPageWithSeo = () => (
+ <>
+  <Seo
+   title="Hair Studio AI Try-On - Your New Look Starts Here"
+   description="Instantly try on thousands of hairstyles and colors using our hyper-realistic AI try-on tool directly in your browser or app."
+   keywords="hair studio, try on hairstyles online, virtual haircut, new hair color ideas, best hair app"
+  />
+  <Index />
+ </>
+);
+
+// --- AppRoutes Component (No changes needed inside the effect for SEO) ---
 const AppRoutes = () => {
-  console.log('[AppRoutes] Component rendering...');
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-  const appUrlListenerRef = useRef<any>(null);
-  const hasProcessedInitialUrl = useRef(false);
+ const { isAuthenticated } = useAuth();
+ const navigate = useNavigate();
+ const appUrlListenerRef = useRef<any>(null);
+ const hasProcessedInitialUrl = useRef(false);
   
-  console.log(`[AppRoutes] isAuthenticated: ${isAuthenticated}`);
 
-  useEffect(() => {
-    console.log('[AppRoutes Effect] Running effect for referral/deep link capture...');
+ useEffect(() => {
+  // Stores referral code if found and user isn't logged in
+  const storeReferralCode = (code: string | null | undefined, source: string) => {
+    
+   if (!code) {
+    console.log(`[Referral] No code provided from ${source}.`);
+    return;
+   }
 
-    // Stores referral code if found and user isn't logged in
-    const storeReferralCode = (code: string | null | undefined, source: string) => {
-      console.log(`[Referral] storeReferralCode called with code: '${code}' from ${source}. isAuthenticated: ${isAuthenticated}`);
-      
-      if (!code) {
-        console.log(`[Referral] No code provided from ${source}.`);
-        return;
-      }
+   // Trim and validate code
+   const trimmedCode = code.trim();
+   if (!trimmedCode) {
+    return;
+   }
 
-      // Trim and validate code
-      const trimmedCode = code.trim();
-      if (!trimmedCode) {
-        console.log(`[Referral] Empty code after trimming from ${source}.`);
-        return;
-      }
+   if (isAuthenticated) {
+    return;
+   }
 
-      if (isAuthenticated) {
-        console.log(`[Referral] Code '${trimmedCode}' detected, but user is already authenticated. Ignoring.`);
-        return;
-      }
+   const existingCode = localStorage.getItem('referral_code');
+   if (existingCode) {
+    return;
+   }
 
-      const existingCode = localStorage.getItem('referral_code');
-      if (existingCode) {
-        console.log(`[Referral] Code '${trimmedCode}' detected, but referral_code already exists in localStorage ('${existingCode}'). Ignoring.`);
-        return;
-      }
+   localStorage.setItem('referral_code', trimmedCode);
+  };
 
-      localStorage.setItem('referral_code', trimmedCode);
-      console.log(`[Referral] Code '${trimmedCode}' stored in localStorage from ${source}.`);
-    };
+  // Function to handle deep link URL processing (omitted parseReferrerCode as it seems unused)
+  const handleAppLink = (urlString: string, source: string) => {
+    
+   if (!urlString) {
+    return;
+   }
 
-    // Function to parse referrer string (handles various formats)
-    const parseReferrerCode = (referrerUrl: string): string | null => {
-      if (!referrerUrl) return null;
-
-      try {
-        // Try parsing as URL search params first
-        const searchStr = referrerUrl.startsWith('?') ? referrerUrl : `?${referrerUrl}`;
-        const params = new URLSearchParams(searchStr);
-        const refFromParams = params.get('ref');
-        
-        if (refFromParams) {
-          console.log(`[Referrer Parser] Found ref in params: '${refFromParams}'`);
-          return refFromParams;
-        }
-
-        // Check if it's a URL-encoded ref parameter
-        const decodedUrl = decodeURIComponent(referrerUrl);
-        const decodedParams = new URLSearchParams(decodedUrl.startsWith('?') ? decodedUrl : `?${decodedUrl}`);
-        const refFromDecoded = decodedParams.get('ref');
-        
-        if (refFromDecoded) {
-          console.log(`[Referrer Parser] Found ref in decoded params: '${refFromDecoded}'`);
-          return refFromDecoded;
-        }
-
-        // If no = or %3D found, treat entire string as referral code
-        if (!referrerUrl.includes('=') && !referrerUrl.includes('%3D')) {
-          console.log(`[Referrer Parser] Treating entire string as code: '${referrerUrl}'`);
-          return referrerUrl;
-        }
-
-        console.log(`[Referrer Parser] Could not parse referrer: '${referrerUrl}'`);
-        return null;
-      } catch (e) {
-        console.error(`[Referrer Parser] Error parsing referrer '${referrerUrl}':`, e);
-        return null;
-      }
-    };
-
-    // Function to handle deep link URL processing
-    const handleAppLink = (urlString: string, source: string) => {
-      console.log(`[DeepLink] handleAppLink called from ${source}. URL: ${urlString}`);
-      
-      if (!urlString) {
-        console.log(`[DeepLink] Empty URL from ${source}`);
-        return;
-      }
-
-      try {
-        const url = new URL(urlString);
-        const refCode = url.searchParams.get('ref');
-        console.log(`[DeepLink] Parsed refCode from URL: '${refCode}'`);
-        storeReferralCode(refCode, `${source} URL`);
-
-        // Optional: Deep Link Routing
-        const path = url.pathname;
-        console.log(`[DeepLink] URL Pathname: '${path}'`);
-        
-        if (path === '/profile') {
-          console.log('[DeepLink] Navigating to /profile');
-          navigate('/profile');
-        } else if (path.startsWith('/product/')) {
-          const productId = path.split('/')[2];
-          console.log(`[DeepLink] Navigating to /product/${productId}`);
-          navigate(`/product/${productId}`);
-        } else if (path && path !== '/' && path !== '/download') {
-          // Navigate to any other valid path
-          console.log(`[DeepLink] Navigating to custom path: ${path}`);
-          navigate(path);
-        }
-      } catch (e) {
-        console.error(`[DeepLink] Error parsing URL from ${source}:`, e);
-      }
-    };
-
-    if (Capacitor.isNativePlatform()) {
-      console.log('[AppRoutes Effect] Native platform detected.');
-      const platform = Capacitor.getPlatform();
-      console.log(`[AppRoutes Effect] Platform: ${platform}`);
-
-      // A) For NEW USERS (Deferred Deep Link) - Android Only
-      if (platform === 'android') {
-        console.log('[AppRoutes Effect] Checking Install Referrer...');
-      
-      }
-
-      // B) Listen for deep links when app is already running (hot start)
-      console.log('[AppRoutes Effect] Adding app URL listener...');
-      const urlListener = CapacitorApp.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
-        console.log('[AppUrlOpen] App opened with URL:', event.url);
-        handleAppLink(event.url, 'appUrlOpen listener');
-      });
-      
-      appUrlListenerRef.current = urlListener;
-      console.log('[AppRoutes Effect] App URL listener added.');
-
-      // C) Check initial URL for cold starts via deep link
-      if (!hasProcessedInitialUrl.current) {
-        console.log('[AppRoutes Effect] Getting launch URL (one-time)...');
-        CapacitorApp.getLaunchUrl()
-          .then(launchUrl => {
-            console.log('[AppRoutes Effect] Launch URL result:', launchUrl);
-            if (launchUrl && launchUrl.url) {
-              console.log('[AppRoutes Effect] App launched with URL:', launchUrl.url);
-              handleAppLink(launchUrl.url, 'getLaunchUrl');
-              hasProcessedInitialUrl.current = true;
-            } else {
-              console.log('[AppRoutes Effect] App not launched with a URL.');
-            }
-          })
-          .catch(e => console.error("[AppRoutes Effect] Error getting launch URL:", e));
-      }
-
-    } else {
-      // --- WEB BROWSER LOGIC ---
-      console.log('[AppRoutes Effect] Web platform detected. Checking URL params...');
-      try {
-        const currentUrl = new URL(window.location.href);
-        const refCode = currentUrl.searchParams.get('ref');
-        console.log(`[AppRoutes Effect] Web URL refCode: '${refCode}'`);
-        
-        if (refCode) {
-          storeReferralCode(refCode, 'Web URL');
-          console.log('[AppRoutes Effect] Cleaning refCode from web URL.');
-          // Clean URL without reloading page
-          const cleanUrl = new URL(window.location.href);
-          cleanUrl.searchParams.delete('ref');
-          window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
-        } else {
-          console.log('[AppRoutes Effect] No refCode found in web URL.');
-        }
-      } catch (e) {
-        console.error('[AppRoutes Effect] Error parsing web URL:', e);
-      }
+   try {
+    const url = new URL(urlString);
+    const refCode = url.searchParams.get('ref');
+    storeReferralCode(refCode, `${source} URL`);
+    const path = url.pathname;
+    if (path === '/profile') {
+     navigate('/profile');
+    } else if (path.startsWith('/product/')) {
+     const productId = path.split('/')[2];
+     navigate(`/product/${productId}`);
+    } else if (path && path !== '/' && path !== '/download') {
+     navigate(path);
     }
+   } catch (e) {
+    console.error(`[DeepLink] Error parsing URL from ${source}:`, e);
+   }
+  };
 
-    // Cleanup listener when component unmounts
-    return () => {
-      console.log('[AppRoutes Effect] Cleaning up effect...');
-      if (appUrlListenerRef.current) {
-        console.log('[AppRoutes Effect] Removing app URL listener...');
-        appUrlListenerRef.current.remove();
-        appUrlListenerRef.current = null;
+  if (Capacitor.isNativePlatform()) {
+   const platform = Capacitor.getPlatform();
+   if (platform === 'android') {
+    // Logic specific to Android deeplinks, if any, would go here
+   }
+
+   const urlListener = CapacitorApp.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
+    handleAppLink(event.url, 'appUrlOpen listener');
+   });
+    
+   appUrlListenerRef.current = urlListener;
+
+   // C) Check initial URL for cold starts via deep link
+   if (!hasProcessedInitialUrl.current) {
+    CapacitorApp.getLaunchUrl()
+     .then(launchUrl => {
+      if (launchUrl && launchUrl.url) {
+       handleAppLink(launchUrl.url, 'getLaunchUrl');
+       hasProcessedInitialUrl.current = true;
+      } else {
+       console.log('[AppRoutes Effect] App not launched with a URL.');
       }
-    };
+     })
+     .catch(e => console.error("[AppRoutes Effect] Error getting launch URL:", e));
+   }
 
-  }, [isAuthenticated, navigate]);
+  } else {
+   try {
+    const currentUrl = new URL(window.location.href);
+    const refCode = currentUrl.searchParams.get('ref');
+     
+    if (refCode) {
+     storeReferralCode(refCode, 'Web URL');
+     // Clean URL without reloading page
+     const cleanUrl = new URL(window.location.href);
+     cleanUrl.searchParams.delete('ref');
+     window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
+    } else {
+     console.log('[AppRoutes Effect] No refCode found in web URL.');
+    }
+   } catch (e) {
+    console.error('[AppRoutes Effect] Error parsing web URL:', e);
+   }
+  }
 
-  console.log('[AppRoutes] Rendering Routes...');
-  return (
-    <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/download" element={<LandingPage />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/analytics" element={<Analytics />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
+  // Cleanup listener when component unmounts
+  return () => {
+   if (appUrlListenerRef.current) {
+    appUrlListenerRef.current.remove();
+    appUrlListenerRef.current = null;
+   }
+  };
+
+ }, [isAuthenticated, navigate]);
+
+ return (
+  <Routes>
+   {/* 4. Use the SEO-wrapped components in the routes */}
+   <Route path="/" element={<IndexPageWithSeo />} />
+   <Route path="/download" element={<LandingPageWithSeo />} />
+   <Route path="/auth/callback" element={<AuthCallback />} />
+   <Route path="/analytics" element={<Analytics />} />
+   <Route path="*" element={<NotFound />} />
+  </Routes>
+ );
 };
 
 const App = () => {
-  console.log('[App] Rendering main App component...');
-  return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster position="top-center" richColors  expand={true}    closeButton  />
-          <BrowserRouter>
-            {console.log('[App] Rendering AppRoutes inside BrowserRouter...')}
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </AuthProvider>
-  );
+ return (
+  <AuthProvider>
+   <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+     <Toaster position="top-center" richColors expand={true} closeButton />
+     {/* 5. Wrap the entire app with HelmetProvider */}
+     <HelmetProvider>
+      <BrowserRouter>
+       <AppRoutes />
+      </BrowserRouter>
+     </HelmetProvider>
+    </TooltipProvider>
+   </QueryClientProvider>
+  </AuthProvider>
+ );
 };
 
-console.log('[App Init] Top-level script execution end.');
 export default App;
