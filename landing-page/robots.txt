@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://shadrach16.github.io/ai-hairstyle-virtual-tryon/sitemap.xml
+
