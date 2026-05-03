@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://shadrach16.github.io/Hair-Studio/sitemap.xml
+Sitemap: https://shadrach16.github.io/ai-hairstyle-virtual-tryon/sitemap.xml
