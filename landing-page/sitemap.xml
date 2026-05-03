@@ -34,4 +34,40 @@
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
+  <url>
+    <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/blog/</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/blog/hair-studio-vs-other-apps.html</loc>
+    <lastmod>2026-05-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/blog/best-ai-hairstyle-apps-2026.html</loc>
+    <lastmod>2026-04-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/blog/how-to-find-perfect-hairstyle.html</loc>
+    <lastmod>2026-04-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/blog/trending-hairstyles-2026.html</loc>
+    <lastmod>2026-04-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/blog/ai-virtual-tryon-technology-explained.html</loc>
+    <lastmod>2026-04-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
 </urlset>
