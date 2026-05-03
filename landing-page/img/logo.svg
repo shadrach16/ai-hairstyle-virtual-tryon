@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Circular background with gradient -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a237e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d1b4a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA000;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer ring -->
+  <circle cx="100" cy="100" r="96" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+  
+  <!-- Main circle background -->
+  <circle cx="100" cy="100" r="90" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  
+  <!-- Scissors icon (professional, centered) -->
+  <g transform="translate(100, 100) scale(1.8)" stroke="url(#goldGrad)" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left blade -->
+    <circle cx="-12" cy="12" r="5"/>
+    <line x1="-8" y1="8" x2="12" y2="-12"/>
+    <!-- Right blade -->
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="8" y1="8" x2="-12" y2="-12"/>
+    <!-- Center pivot -->
+    <circle cx="0" cy="0" r="1.5" fill="url(#goldGrad)"/>
+  </g>
+  
+  <!-- AI sparkle accent (top right) -->
+  <g transform="translate(148, 48)" fill="#FFD700">
+    <path d="M0,-8 L2,-2 L8,0 L2,2 L0,8 L-2,2 L-8,0 L-2,-2 Z" opacity="0.9"/>
+  </g>
+  <g transform="translate(155, 62) scale(0.5)" fill="#FFD700">
+    <path d="M0,-8 L2,-2 L8,0 L2,2 L0,8 L-2,2 L-8,0 L-2,-2 Z" opacity="0.7"/>
+  </g>
+  
+  <!-- "HS" text below scissors -->
+  <text x="100" y="140" text-anchor="middle" font-family="Inter, sans-serif" font-weight="700" font-size="18" fill="#FFD700" letter-spacing="4">HAIR STUDIO</text>
+</svg>

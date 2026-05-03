@@ -1,5 +1,25 @@
+# Hair Studio Landing Page - Crawler Rules
 User-agent: *
 Allow: /
+Allow: /img/
+Disallow: /js/
+Disallow: /css/
 
+# Crawl rate
+Crawl-delay: 1
+
+# Sitemaps
 Sitemap: https://shadrach16.github.io/ai-hairstyle-virtual-tryon/sitemap.xml
+
+# Google specific
+User-agent: Googlebot
+Allow: /
+Allow: /img/
+Allow: /css/
+Allow: /js/
+
+# Bing specific
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
 

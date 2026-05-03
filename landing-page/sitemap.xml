@@ -1,21 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/</loc>
     <lastmod>2026-05-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/img/og-image.png</image:loc>
+      <image:title>Hair Studio AI Hairstyle Try On App</image:title>
+      <image:caption>AI-powered hairstyle virtual try-on showing before and after transformation</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/img/screenshot-home.png</image:loc>
+      <image:title>Hair Studio App Home Screen</image:title>
+      <image:caption>Browse trending hairstyles and categories in Hair Studio app</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/img/screenshot-result.png</image:loc>
+      <image:title>Hair Studio AI Transformation Result</image:title>
+      <image:caption>Before and after AI hairstyle transformation with braids</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/privacy.html</loc>
     <lastmod>2026-05-03</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.3</priority>
   </url>
   <url>
     <loc>https://shadrach16.github.io/ai-hairstyle-virtual-tryon/terms.html</loc>
     <lastmod>2026-05-03</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.3</priority>
   </url>
 </urlset>

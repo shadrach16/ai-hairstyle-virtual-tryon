@@ -158,4 +158,93 @@
     });
   });
 
+  // --- Scroll Depth Tracking (25%, 50%, 75%, 100%) ---
+  // Tracks how far users scroll — key engagement signal for SEO
+  const scrollDepthMarks = [25, 50, 75, 100];
+  const scrollDepthFired = new Set();
+
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const scrollPercent = Math.round((scrollTop / docHeight) * 100);
+
+    scrollDepthMarks.forEach((mark) => {
+      if (scrollPercent >= mark && !scrollDepthFired.has(mark)) {
+        scrollDepthFired.add(mark);
+        if (typeof gtag === 'function') {
+          gtag('event', 'scroll_depth', {
+            event_category: 'engagement',
+            event_label: mark + '%',
+            value: mark,
+            non_interaction: true
+          });
+        }
+      }
+    });
+  }, { passive: true });
+
+  // --- Time on Page Tracking (15s, 30s, 60s, 120s milestones) ---
+  // Users who stay longer = higher quality signal
+  const timeMarks = [15, 30, 60, 120];
+  const timeFired = new Set();
+  const pageLoadTime = Date.now();
+
+  const timeInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - pageLoadTime) / 1000);
+    timeMarks.forEach((mark) => {
+      if (elapsed >= mark && !timeFired.has(mark)) {
+        timeFired.add(mark);
+        if (typeof gtag === 'function') {
+          gtag('event', 'time_on_page', {
+            event_category: 'engagement',
+            event_label: mark + 's',
+            value: mark,
+            non_interaction: true
+          });
+        }
+      }
+    });
+    if (timeFired.size === timeMarks.length) clearInterval(timeInterval);
+  }, 5000);
+
+  // --- Exit Intent Detection (desktop only) ---
+  // Fires when user moves mouse toward browser close/back
+  let exitIntentFired = false;
+  document.addEventListener('mouseout', (e) => {
+    if (exitIntentFired) return;
+    if (e.clientY <= 0 && e.relatedTarget === null) {
+      exitIntentFired = true;
+      if (typeof gtag === 'function') {
+        gtag('event', 'exit_intent', {
+          event_category: 'engagement',
+          event_label: 'mouse_leave_top',
+          value: Math.floor((Date.now() - pageLoadTime) / 1000)
+        });
+      }
+    }
+  });
+
+  // --- Section Visibility Tracking ---
+  // Tracks which sections users actually see (content engagement)
+  const sections = document.querySelectorAll('section[id]');
+  const sectionSeen = new Set();
+  const sectionObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !sectionSeen.has(entry.target.id)) {
+          sectionSeen.add(entry.target.id);
+          if (typeof gtag === 'function') {
+            gtag('event', 'section_view', {
+              event_category: 'content',
+              event_label: entry.target.id,
+              non_interaction: true
+            });
+          }
+        }
+      });
+    },
+    { threshold: 0.3 }
+  );
+  sections.forEach((section) => sectionObserver.observe(section));
+
 })();
