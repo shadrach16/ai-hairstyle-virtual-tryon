@@ -1,73 +1,125 @@
 // src/components/WebPaywallScreen.tsx
 
 import React from 'react';
-import { Zap, Unlock, Clock, Star, TrendingUp, Gem, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardTitle } from '@/components/ui/card';
+import { Star, TrendingUp, Gem, Unlock, Coins } from 'lucide-react';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { usePayment } from '@/hooks/usePayment';
+import type { CreditPack } from '@/lib/pricingSystem';
+import { cn } from '@/lib/utils';
 
+function buildDodoCheckoutUrl(pack: CreditPack): string | null {
+    const dodo = pack.storefronts.dodo;
+    if (!dodo) {
+        return null;
+    }
 
+    const redirectUrl = encodeURIComponent(
+        import.meta.env.VITE_WEB_DODO_PAYMENT_REDIRECT_URL || window.location.origin
+    );
 
+    return `${dodo.checkoutBaseUrl}/${dodo.productId}?quantity=1&redirect_url=${redirectUrl}`;
+}
 
-const DODO_PAYMENT_URLS: Record<string, string> = {
-  'pdt_pfhTvWTjDJAIDqBe8r8Ab': `https://checkout.dodopayments.com/buy/pdt_pfhTvWTjDJAIDqBe8r8Ab?quantity=1&redirect_url=${import.meta.env.VITE_WEB_DODO_PAYMENT_REDIRECT_URL}`, 
-  'pdt_s6wp6uV54N8VlApn5MKqU': `https://checkout.dodopayments.com/buy/pdt_s6wp6uV54N8VlApn5MKqU?quantity=1&redirect_url=${import.meta.env.VITE_WEB_DODO_PAYMENT_REDIRECT_URL}`, 
-  'pdt_P4zhEuGkXT30Kg3OKr9zM': `https://checkout.dodopayments.com/buy/pdt_P4zhEuGkXT30Kg3OKr9zM?quantity=1&redirect_url=${import.meta.env.VITE_WEB_DODO_PAYMENT_REDIRECT_URL}`, 
-  'pdt_NQ0vZ7eaMMMZJEEMiLHWz': `https://checkout.dodopayments.com/buy/pdt_NQ0vZ7eaMMMZJEEMiLHWz?quantity=1&redirect_url=${import.meta.env.VITE_WEB_DODO_PAYMENT_REDIRECT_URL}`, 
-  'pdt_ZaJToyG0j8zfq1zbcDMUD': `https://checkout.dodopayments.com/buy/pdt_ZaJToyG0j8zfq1zbcDMUD?quantity=1&redirect_url=${import.meta.env.VITE_WEB_DODO_PAYMENT_REDIRECT_URL}`, 
-
-};
-
-// Frontend representation of the credit packs (using the descriptions you requested)
-const WEB_CREDIT_PACKS = [
-    { id: 'pdt_pfhTvWTjDJAIDqBe8r8Ab', name: 'Starter Pack', credits: 25, price: '$1.49', icon: Star, description: "Style ready. Secure 25 credits to start building your portfolio." },
-    { id: 'pdt_s6wp6uV54N8VlApn5MKqU', name: 'Essential Pack', credits: 100, price: '$5.89', icon: Gem, description: "Max value. Get 100 credits for continuous style discovery." },
-    { id: 'pdt_P4zhEuGkXT30Kg3OKr9zM', name: 'Stylist Pack', credits: 250, price: '$12.48', icon: Unlock, description: "Power user. Secure 250 credits style pack." },
-    { id: 'pdt_NQ0vZ7eaMMMZJEEMiLHWz', name: 'VIP Pack', credits: 1000, price: '$44.99', icon: Unlock, description: "VIP user. Secure 1000 credits for high-volume use." },
-    { id: 'pdt_ZaJToyG0j8zfq1zbcDMUD', name: 'Premium Pack', credits: 10000, price: '$100', icon: Clock, description: "Ultimate freedom. Never worry about credits again." },
-];
+function iconForPack(pack: CreditPack) {
+    if (pack.popular) return Gem;
+    if (pack.credits >= 1000) return Unlock;
+    if (pack.credits >= 250) return TrendingUp;
+    return Star;
+}
 
 interface WebPaywallProps {
     userId: string | number;
-    currentCredits: number;
     onClose: () => void;
 }
 
-const PaywallItem: React.FC<typeof WEB_CREDIT_PACKS[0] & { userId: string | number }> = ({ id, name, credits, price, icon: Icon, description, userId }) => {
-    
-    const paymentUrlTemplate = DODO_PAYMENT_URLS[id] || DODO_PAYMENT_URLS['credits25']; 
-    
+const PackCard: React.FC<{ pack: CreditPack; isPopular?: boolean }> = ({ pack, isPopular }) => {
+    const Icon = iconForPack(pack);
+    const paymentUrl = buildDodoCheckoutUrl(pack);
+    const price = pack.storefronts.dodo?.price.formatted;
+
     const handleRedirect = () => {
-        toast.info("Redirecting you to the secure payment page...", { duration: 2000 });
-        window.location.href = paymentUrlTemplate; // Direct redirection to Dodopayment
+        if (!paymentUrl) {
+            toast.error('This pack is not available on web checkout.');
+            return;
+        }
+        toast.info("Redirecting to secure payment...", { duration: 2000 });
+        window.location.href = paymentUrl;
     };
 
     return (
-        <Card className="flex items-center justify-between p-4 bg-white hover:border-amber-500 transition-colors cursor-pointer">
-            <div className="flex items-center space-x-4">
-                <Icon className="w-6 h-6 text-amber-500 shrink-0" />
-                <div className="text-left">
-                    <CardTitle className="text-lg font-bold">{name} <span className="text-sm text-gray-500 ml-2">({credits} Credits)</span></CardTitle>
-                    <CardDescription className="text-sm text-gray-600 mt-1">{description}</CardDescription>
+        <button
+            onClick={handleRedirect}
+            className={cn(
+                'w-full text-left p-4 rounded-2xl border transition-all duration-200 active:scale-[0.98]',
+                isPopular
+                    ? 'border-[#1a1a1a] bg-[#1a1a1a] text-white ring-1 ring-[#1a1a1a]'
+                    : 'border-gray-100 bg-white hover:border-gray-200'
+            )}
+        >
+            {isPopular && (
+                <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-white text-[#1a1a1a] px-2 py-0.5 rounded-full mb-2.5">
+                    Most popular
+                </span>
+            )}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+                        isPopular ? 'bg-white/15' : 'bg-gray-50'
+                    )}>
+                        <Icon className={cn('w-5 h-5', isPopular ? 'text-white' : 'text-gray-400')} />
+                    </div>
+                    <div>
+                        <p className={cn('text-[15px] font-bold leading-tight', isPopular ? 'text-white' : 'text-gray-900')}>
+                            {pack.name}
+                        </p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <Coins className={cn('w-3 h-3', isPopular ? 'text-white/50' : 'text-gray-300')} />
+                            <span className={cn('text-[12px] font-medium', isPopular ? 'text-white/60' : 'text-gray-400')}>
+                                {pack.displayLabel}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div className={cn(
+                    'h-9 px-4 rounded-xl flex items-center justify-center text-[14px] font-bold flex-shrink-0',
+                    isPopular
+                        ? 'bg-white text-[#1a1a1a]'
+                        : 'bg-[#1a1a1a] text-white'
+                )}>
+                    {price}
                 </div>
             </div>
-            <Button onClick={handleRedirect} className="bg-amber-600 hover:bg-amber-700 font-bold px-6 shrink-0">
-                Buy {price}
-            </Button>
-        </Card>
+            {pack.description && (
+                <p className={cn('text-[11px] mt-2 leading-relaxed', isPopular ? 'text-white/50' : 'text-gray-400')}>
+                    {pack.description}
+                </p>
+            )}
+        </button>
     );
 };
 
 
-export const WebPaywallScreen: React.FC<WebPaywallProps> = ({ userId, currentCredits, onClose }) => {
-    return (
-        <div className="bg-white/95 backdrop-blur-sm flex justify-center items-center overflow-y-auto p-6">
-                
-                <div className="space-y-4">
-                    {WEB_CREDIT_PACKS.map((pack) => (
-                        <PaywallItem key={pack.id} {...pack} userId={userId} />
-                    ))}
+export const WebPaywallScreen: React.FC<WebPaywallProps> = ({ userId, onClose }) => {
+    const { creditPacks, isCatalogLoading } = usePayment();
+    const webPacks = creditPacks
+        .filter((pack) => pack.storefronts.dodo)
+        .sort((left, right) => left.displayOrder - right.displayOrder);
+
+    if (isCatalogLoading) {
+        return (
+            <div className="flex items-center justify-center h-40">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
             </div>
+        );
+    }
+
+    return (
+        <div className="space-y-2.5">
+            {webPacks.map((pack) => (
+                <PackCard key={pack.id} pack={pack} isPopular={pack.popular} />
+            ))}
         </div>
     );
 };

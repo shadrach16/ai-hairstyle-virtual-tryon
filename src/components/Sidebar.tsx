@@ -1,7 +1,7 @@
 // src/components/MobileSidebar.jsx
 
 import React, { useState } from 'react';
-import { LogOut, Crown, BarChart3, Mail, Menu, X, Sparkles, Home, ChevronRight, Phone,Trash2  } from 'lucide-react'; // Added Phone icon (optional)
+import { LogOut, Crown, BarChart3, Mail, Menu, X, UserRound, Home, ChevronRight, Phone, Trash2, HelpCircle, LogIn } from 'lucide-react'; // Added Phone icon (optional)
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -13,17 +13,29 @@ const triggerHapticFeedback = (style: ImpactStyle) => {
  
 };
 
-const UserAvatar = ({ user }) => (
-    <img
-        src={user.avatar || 'placeholder-url'}
-        alt={user.name || 'User'}
-        className="w-10 h-10 rounded-full border-2 border-slate-200 object-cover"
-    />
-);
+const UserAvatar = ({ user }) => {
+    const isGuest = user?.isGuest;
+    // Handle null/undefined user or guest user
+    if (!user || isGuest) {
+        return (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-2 border-dashed border-gray-400">
+                <UserRound className="w-5 h-5 text-gray-500" />
+            </div>
+        );
+    }
+    return (
+        <img
+            src={user.avatar || 'placeholder-url'}
+            alt={user.name || 'User'}
+            className="w-10 h-10 rounded-full border-2 border-slate-200 object-cover"
+        />
+    );
+};
 
-const MobileSidebar = ({ user, isAuthenticated, setShowPricing, handleSignOutWithHaptic, onNavigate,handleDeleteAccount  }) => {
+const MobileSidebar = ({ user, isAuthenticated, setShowPricing, handleSignOutWithHaptic, onNavigate, handleDeleteAccount, onShowHelp, onShowAuth }) => {
     const [isOpen, setIsOpen] = useState(false);
     const navigate = useNavigate();
+    const isGuest = user?.isGuest;
 
     const toggleSidebar = () => {
         triggerHapticFeedback('small');
@@ -38,27 +50,44 @@ const MobileSidebar = ({ user, isAuthenticated, setShowPricing, handleSignOutWit
     const UserInfoSection = (
         <div className="p-4 safe-p-t bg-amber-50 border-b">
             <div className="flex items-center space-x-3">
-                {user?.avatar ? <UserAvatar user={user} /> : <Sparkles className="w-10 h-10 text-amber-500" />}
+                {user?.avatar && !isGuest ? <UserAvatar user={user} /> : <UserAvatar user={user} />}
                 <div className='flex flex-col'>
-                    <p className="font-semibold leading-none text-slate-800">
-                        {isAuthenticated ? user?.name : 'Guest User'}
-                    </p>
+                    <div className="flex items-center gap-2">
+                        <p className="font-semibold leading-none text-slate-800">
+                            {isAuthenticated ? (isGuest ? 'Guest' : user?.name) : 'Guest User'}
+                        </p>
+                        {isGuest && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">
+                                Trial
+                            </span>
+                        )}
+                    </div>
                     <p className="text-xs leading-none text-slate-500 mt-1">
-                        {isAuthenticated ? user?.email : 'Sign in for full access'}
+                        {isAuthenticated && !isGuest ? user?.email : 'Sign in for full access'}
                     </p>
                 </div>
             </div>
             
             <Separator className="my-3 bg-amber-200"/>
             
-            {/* Credits/Pricing Button */}
-            <Button 
-                onClick={() => { setIsOpen(false); setShowPricing(true); }} 
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold h-9"
-            >
-                <Crown className="w-4 h-4 mr-2" />
-                {user?.isPro ? 'Manage Subscription' : `Credits: ${Number(user?.credits).toFixed(2) || 0}`}
-            </Button>
+            {/* Guest sign-in CTA or Credits/Pricing Button */}
+            {isGuest ? (
+                <Button 
+                    onClick={() => { setIsOpen(false); onShowAuth?.(); }} 
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold h-9"
+                >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign in for 5 free credits
+                </Button>
+            ) : (
+                <Button 
+                    onClick={() => { setIsOpen(false); setShowPricing(true); }} 
+                    className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold h-9"
+                >
+                    <Crown className="w-4 h-4 mr-2" />
+                    {user?.isPro ? 'Manage Subscription' : `Credits: ${Number(user?.credits).toFixed(2) || 0}`}
+                </Button>
+            )}
 
         </div>
     );
@@ -109,6 +138,14 @@ text-transparent fascinate-inline-regular">
                 <div className="py-2 flex flex-col justify-between h-[calc(100vh-200px)]">
                     <nav className="flex-1">
                        
+                        {onShowHelp && (
+                            <SidebarLink 
+                                icon={HelpCircle} 
+                                label="Help & Guide" 
+                                onClick={() => { setIsOpen(false); onShowHelp(); }} 
+                            />
+                        )}
+                        
                         <SidebarLink 
                             icon={Mail} 
                             label="Contact Support" 

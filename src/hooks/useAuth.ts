@@ -62,7 +62,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     if (userData && token) {
       try {
-        setUser(JSON.parse(userData));
+        const parsed = JSON.parse(userData);
+        // Back-compat: older builds may have stored { user: {...} }.
+        setUser(parsed?.user ?? parsed);
       } catch (error) {
         console.error('Error parsing user data:', error);
         localStorage.clear();
@@ -72,27 +74,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false);
   }, []);
 
-  const signOut = async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<void> => {
     try {
-
       await apiService.signOut(); 
-      // No need to call window.google for redirect flow sign out
     } catch (error) {
       console.error('Sign out error:', error);
     } finally {
       setUser(null);
       toast.success('You have been signed out.');
     }
-  };
+  }, []);
 
-  const refreshUser = async (): Promise<void> => {
-    // This function remains crucial for session validation.
+  const refreshUser = useCallback(async (): Promise<void> => {
     try {
       const result = await apiService.getCurrentUser();
-      if (  result.data) {
+      if (result.data) {
         setUser(result.data.user); 
       } else {
-        // If token is invalid/expired, sign them out locally.
         setUser(null);
         localStorage.removeItem('user_data');
         localStorage.removeItem('auth_token');
@@ -100,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Refresh user error:', error);
     }
-  };
+  }, []);
 
   const value = {
     user,

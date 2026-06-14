@@ -1,4 +1,4 @@
-import { apiService, type User } from './apiService';
+import { apiService, type User } from './api';
 
 declare global {
   interface Window {

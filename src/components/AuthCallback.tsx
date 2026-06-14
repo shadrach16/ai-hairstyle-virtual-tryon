@@ -79,12 +79,32 @@ export default function AuthCallback() {
 
 
   return (
-       <div className="flex items-center justify-center h-screen flex-col space-y-5">
- 
-      <div className="text-center">
-        <p className="text-lg font-semibold">Signing in with Google...</p>
-        <p className="text-gray-600">Please wait, we're verifying your session.</p>
+    <div className="flex items-center justify-center h-screen bg-white">
+      <div className="flex flex-col items-center gap-8 w-full max-w-[280px]">
+        {/* Pulsing avatar skeleton */}
+        <div className="w-16 h-16 rounded-full bg-gray-100 animate-pulse" />
+
+        {/* Content skeleton lines */}
+        <div className="flex flex-col items-center gap-3 w-full">
+          <div className="h-3 w-36 rounded-full bg-gray-100 animate-pulse" />
+          <div className="h-2.5 w-48 rounded-full bg-gray-50 animate-pulse [animation-delay:150ms]" />
+        </div>
+
+        {/* Minimal sliding progress bar */}
+        <div className="w-full h-[3px] rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className="h-full w-1/3 rounded-full bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200"
+            style={{ animation: 'authSlide 1.4s ease-in-out infinite' }}
+          />
+        </div>
       </div>
+
+      <style>{`
+        @keyframes authSlide {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
     </div>
   );
 }

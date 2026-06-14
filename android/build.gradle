@@ -32,15 +32,8 @@ allprojects {
         mavenCentral()
     }
 
-    // New configuration to explicitly set Java 21 for all modules
-    // This helps avoid the "Unsupported class file major version 69" error
-    tasks.withType(JavaCompile) {
-        options.compilerArgs.addAll(['--release', '21'])
-    }
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-            jvmTarget = "21"
-        }
+    configurations.configureEach {
+        resolutionStrategy.force 'androidx.browser:browser:1.4.0'
     }
 }
 

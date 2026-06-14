@@ -7,7 +7,7 @@ import {
   ArrowRightIcon, 
   Bars3Icon, 
   XMarkIcon, 
-  SparklesIcon, 
+  BoltIcon, 
   CameraIcon, 
   ShareIcon 
 } from '@heroicons/react/24/outline';
@@ -96,7 +96,7 @@ const HomePage = () => {
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
             <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-amber-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-200"></div>
-                <img className='relative w-10 h-10 rounded-full border-2 border-white' src={'https://res.cloudinary.com/djpcokxvn/image/upload/w_1000,c_fill,ar_1:1,g_auto,r_max,bo_5px_solid_red,b_rgb:262c35/v1763046539/campusprint_kyc-documents/cropped_circle_image_1_ymbe1t.png'} alt="Hair Studio Logo" />
+                <img className='relative w-10 h-10 rounded-full border-2 border-white' src={'https://res.cloudinary.com/djpcokxvn/image/upload/w_1000,c_fill,ar_1:1,g_auto,r_max/v1777118970/HairStudio/app_logo_premium.png'} alt="Hair Studio Logo" />
             </div>
             <span className="text-xl font-bold text-gray-900 tracking-tight">Hair Studio<span className="text-amber-600">.</span></span>
           </div>
@@ -154,7 +154,7 @@ const HomePage = () => {
             className="space-y-6"
           >
             <motion.div variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 border border-purple-100 text-purple-700 text-sm font-semibold mb-4">
-                <SparklesIcon className="w-4 h-4" />
+              <BoltIcon className="w-4 h-4" />
                 <span>The #1 AI Hairstyle Try-On App</span>
             </motion.div>
 
@@ -247,7 +247,7 @@ const HomePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-                { title: "AI Vision", desc: "Precision face mapping that understands your structure.", color: "bg-indigo-50 text-indigo-900", icon: <SparklesIcon className="w-6 h-6 text-indigo-600"/>, btn: "Learn More" },
+                { title: "AI Vision", desc: "Precision face mapping that understands your structure.", color: "bg-indigo-50 text-indigo-900", icon: <BoltIcon className="w-6 h-6 text-indigo-600"/>, btn: "Learn More" },
                 { title: "Color Lab", desc: "From Platinum Blonde to Neon Green, instantly.", color: "bg-amber-50 text-amber-900", icon: <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-red-500 to-yellow-500"/>, btn: "Try Colors" },
                 { title: "Community", desc: "Get feedback from a community of stylists.", color: "bg-pink-50 text-pink-900", icon: <ShareIcon className="w-6 h-6 text-pink-600"/>, btn: "Join Now" }
             ].map((feature, idx) => (
@@ -283,7 +283,7 @@ const HomePage = () => {
 
                 {[
                     { step: "01", title: "Upload Photo", desc: "Take a selfie or upload a clear photo of your face.", detail: "📸 Ensure good lighting" },
-                    { step: "02", title: "Choose Style", desc: "Select from our library or upload any image from the web.", detail: "✨ Endless possibilities" },
+                    { step: "02", title: "Choose Style", desc: "Select from our library or upload any image from the web.", detail: "Endless possibilities" },
                     { step: "03", title: "Save & Share", desc: "Download your high-res makeover or send to your stylist.", detail: "💌 Get opinions first" }
                 ].map((item, idx) => (
                     <motion.div 
@@ -370,7 +370,7 @@ const HomePage = () => {
       <footer className="bg-white border-t border-gray-100 py-12">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
-                 <img className='w-8 h-8 rounded-full grayscale opacity-50' src={'https://res.cloudinary.com/djpcokxvn/image/upload/w_1000,c_fill,ar_1:1,g_auto,r_max,bo_5px_solid_red,b_rgb:262c35/v1763046539/campusprint_kyc-documents/cropped_circle_image_1_ymbe1t.png'} alt="Logo" />
+                 <img className='w-8 h-8 rounded-full grayscale opacity-50' src={'https://res.cloudinary.com/djpcokxvn/image/upload/w_1000,c_fill,ar_1:1,g_auto,r_max/v1777118970/HairStudio/app_logo_premium.png'} alt="Logo" />
                  <span className="text-gray-500 font-medium">Hair Studio</span>
             </div>
             

@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Hair Studio',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'http'
   },
   // Add the Android version block to set the SDK versions
   android: {
@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
       source: 'app-icon.png' 
     },
     splash: {
-      backgroundColor: '#16a34a', // Example: Dark purple/indigo background
+      backgroundColor: '#ffffff',
     }
   },
   plugins: {
@@ -36,8 +36,8 @@ const config: CapacitorConfig = {
       },
       "StatusBar": {
       "overlaysWebView": false,
-      "style": "DARK",
-      "backgroundColor": "#d97706"
+      "style": "LIGHT",
+      "backgroundColor": "#ffffff"
     },
       "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]

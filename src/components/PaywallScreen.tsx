@@ -1,162 +1,331 @@
 // components/PaywallScreen.tsx
-import React from 'react';
-// Assuming usePayment has been modified to export 'packages'
+import React, { useEffect, useState, useRef } from 'react';
+import { apiService } from '@/lib/api';
 import { usePayment } from '../hooks/usePayment'; 
+import { Capacitor } from '@capacitor/core';
 import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
-import { Zap, Unlock, X, Loader2 } from 'lucide-react'; 
+import { Zap, Loader2, RotateCcw, Crown, Coins } from 'lucide-react'; 
+import type { CreditPack, SubscriptionPlan } from '@/lib/pricingSystem';
 
-// Define a simple structure for the credit packs to help map the UI
-interface CreditPackDisplay {
-    // We only need the display details and the productId for mapping
-    credits: number | string;
-    description: string;
-    productId: string;
-    icon: React.ReactNode;
-}
-
-// --- Component for a single Paywall item ---
-interface PaywallItemProps {
-    pack: PurchasesPackage;
-    credits: number | string;
-    description: string;
-    icon: React.ReactNode;
-    isProcessing: boolean | string; // Type is string (productId) or boolean (general processing state)
-    buyCredits: (productId: string) => Promise<void>;
-}
-
-const PaywallItem: React.FC<PaywallItemProps> = ({ pack, credits, description, icon, isProcessing, buyCredits }) => {
-    const isCurrentProcessing = isProcessing === pack.product.identifier;
-    
-    // RevenueCat's package contains the formatted price
-    const formattedPrice = pack.product.priceString;
-    const isUnlimited = pack.product.identifier === 'unlimited';
-
-    return (
-        <button
-            onClick={() => buyCredits(pack.product.identifier)}
-            disabled={!!isProcessing} // Disable if any purchase is processing
-            className={`
-                flex items-center justify-between p-1 my-2 rounded-xl text-white transition-colors duration-200 w-full
-                ${isCurrentProcessing ? 'bg-indigo-600/70' : 'bg-gray-800 hover:bg-gray-700'}
-                ${isProcessing ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}
-            `}
-        >
-            <div className="flex items-center">
-                {/* Visual element on the left (like the diamond in your image) */}
-                <div className={`p-1.5 rounded-full ${isUnlimited ? 'bg-yellow-400' : 'bg-indigo-500'}`}>
-                    {icon}
-                </div>
-                <div className="ml-4 text-left">
-                    <p className="text-lg font-semibold">
-                        {credits} {isUnlimited ? '' : 'credits'}
-                    </p>
-                    <p className="text-sm text-gray-400">{description}</p>
-                </div>
-            </div>
-            {/* Price Button */}
-            <div className="flex-shrink-0">
-                <div className={`
-                    px-5 p-2 rounded-full font-bold transition-colors duration-200
-                    ${isCurrentProcessing 
-                        ? 'bg-white text-indigo-700' 
-                        : isUnlimited 
-                            ? 'bg-yellow-400 text-gray-900 hover:bg-yellow-300' 
-                            : 'bg-indigo-500 text-white hover:bg-indigo-400'
-                    }
-                `}>
-                    {isCurrentProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : formattedPrice}
-                </div>
-            </div>
-        </button>
-    );
+// Tier visual config
+const TIER_STYLES: Record<string, { emoji: string; accent: string; bg: string }> = {
+  credits3:    { emoji: '🎯', accent: 'text-gray-600', bg: 'bg-gray-50' },
+  credits10:   { emoji: '⚡', accent: 'text-blue-600', bg: 'bg-blue-50' },
+  credits25:   { emoji: '🔥', accent: 'text-orange-600', bg: 'bg-orange-50' },
+  credits100:  { emoji: '💎', accent: 'text-violet-600', bg: 'bg-violet-50' },
+  credits250:  { emoji: '👑', accent: 'text-amber-600', bg: 'bg-amber-50' },
+  unlimited:   { emoji: '∞', accent: 'text-emerald-600', bg: 'bg-emerald-50' },
 };
+const DEFAULT_TIER = { emoji: '✨', accent: 'text-gray-600', bg: 'bg-gray-50' };
+
+// Google Play returns subscription product identifiers as "subscriptionId:basePlanId"
+// (e.g. "plus_annual:plus-annual-1y"). Match on the subscriptionId part so the catalog
+// can keep plain ids ("plus_annual"). One-time credit packs have no ":" so they still
+// match exactly.
+const productMatches = (identifier: string, productId?: string): boolean =>
+    !!productId && (identifier === productId || identifier.split(':')[0] === productId);
 
 
 // --- Main Paywall Screen Component ---
 
+type PaywallTab = 'credits' | 'subscriptions';
+
 export const PaywallScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    // 1. Destructure the packages array from the usePayment hook
     const { 
         storeReady, 
+        isCatalogLoading,
         isProcessingProductId, 
         buyCredits,
-        packages // <--- Now using the real packages from the hook
+        buySubscription,
+        restorePurchases,
+        packages,
+        creditPacks,
+        catalog,
+        subscriptions,
+        restoreSubscription,
+        isPro,
+        rcDebugInfo,
     } = usePayment();
 
-    // 2. Define the static display data, mapping the product IDs to the UI names
-    // This uses the product IDs from your log data (e.g., 'credits3', 'credits25') 
-    // and the labels from your design image (e.g., '3 credits', 'Novies Pack').
-    const displayPacks: CreditPackDisplay[] = [
-        { credits: 3, description: 'Beginners Pack', productId: 'credits3', icon: <Zap className="w-5 h-5 text-indigo-100" /> },
-        { credits: 10, description: 'Novies Pack', productId: 'credits10', icon: <Zap className="w-5 h-5 text-indigo-100" /> },
-        { credits: 25, description: 'Essential Pack', productId: 'credits25', icon: <Zap className="w-5 h-5 text-indigo-100" /> },
-        { credits: 100, description: 'Value Pack', productId: 'credits100', icon: <Zap className="w-5 h-5 text-indigo-100" /> },
-        { credits: 250, description: 'Stylist Pack', productId: 'credits250', icon: <Zap className="w-5 h-5 text-indigo-100" /> },
-        { credits: 'Lifetime Access', description: 'Lifetime Access (VIP)', productId: 'unlimited', icon: <Unlock className="w-5 h-5 text-gray-900" /> },
-    ];
+    // Default to Subscriptions (higher LTV); fall back to credits only if no plans exist.
+    const [activeTab, setActiveTab] = useState<PaywallTab>('subscriptions');
+    const userPickedTab = useRef(false);
+    const [isRestoring, setIsRestoring] = useState(false);
 
+    const selectTab = (tab: PaywallTab) => {
+        userPickedTab.current = true;
+        setActiveTab(tab);
+    };
 
-    // 3. Combine display data with RevenueCat package data
-    const paywallItems = displayPacks.map(displayPack => {
-        const rcPackage = packages.find(p => p.product.identifier === displayPack.productId);
-        return rcPackage ? { ...displayPack, rcPackage } : null;
-    }).filter(item => item !== null) as (CreditPackDisplay & { rcPackage: PurchasesPackage })[];
+    // Track paywall view on mount
+    useEffect(() => {
+        apiService.trackEvent('paywall_viewed', {
+            source: 'credits_modal',
+            packagesAvailable: packages.length,
+            tab: activeTab
+        });
+    }, [packages.length, activeTab]);
 
+    const paywallItems = creditPacks
+        .filter((catalogPack) => catalogPack.storefronts.revenueCat?.productId)
+        .sort((left, right) => left.displayOrder - right.displayOrder)
+        .map((catalogPack) => {
+            const rcPackage = packages.find(
+                (candidate) => productMatches(candidate.product.identifier, catalogPack.storefronts.revenueCat?.productId)
+            );
+            return rcPackage ? { catalogPack, rcPackage } : null;
+        })
+        .filter((item): item is { catalogPack: CreditPack; rcPackage: PurchasesPackage } => item !== null);
 
-    if (!storeReady) {
+    // Build subscription items matched to RevenueCat packages
+    const subscriptionItems = subscriptions
+        .filter((sub) => sub.storefronts.revenueCat?.productId)
+        .sort((left, right) => left.displayOrder - right.displayOrder)
+        .map((sub) => {
+            const rcPackage = packages.find(
+                (candidate) => productMatches(candidate.product.identifier, sub.storefronts.revenueCat?.productId)
+            );
+            return rcPackage ? { sub, rcPackage } : null;
+        })
+        .filter((item): item is { sub: SubscriptionPlan; rcPackage: PurchasesPackage } => item !== null);
+
+    const hasSubscriptions = subscriptionItems.length > 0;
+
+    // Once data resolves, honour the Subscriptions-first default unless the user has
+    // already chosen a tab (avoids a race where subs load after first paint).
+    useEffect(() => {
+        if (!userPickedTab.current) {
+            setActiveTab(hasSubscriptions ? 'subscriptions' : 'credits');
+        }
+    }, [hasSubscriptions]);
+
+    if (!storeReady || isCatalogLoading) {
         return (
-            <div className="flex items-center justify-center h-full bg-gray-900/90 text-white p-6 rounded-lg">
-                <Loader2 className="w-8 h-8 mr-3 animate-spin text-indigo-400" />
-                <p>Loading payment options...</p>
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 mr-2.5 animate-spin text-gray-300" />
+                <p className="text-[13px] text-gray-400">Loading payment options...</p>
             </div>
         );
     }
-    
-    // Show a message if store is ready but no items were fetched (e.g., config error)
-    if (paywallItems.length === 0) {
-         return (
-            <div className="relative h-full max-h-[80vh] w-full max-w-md mx-auto p-6 bg-gray-900 rounded-3xl shadow-2xl">
-                 <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:text-white transition">
-                    <X className="w-6 h-6" />
-                </button>
-                <h2 className="text-2xl font-bold text-white text-center mb-6 mt-12">
-                    Store Offline
-                </h2>
-                <p className="text-center text-gray-400">
-                    We're having trouble loading the products. Please try again later.
-                </p>
-                <div className="flex justify-center space-x-6 text-sm mt-8 text-gray-400">
-                    {/* Placeholder: You can add a refresh button here */}
-                </div>
-            </div>
-        );
-    }
-
 
     return (
-        // The container mimics the dark, rounded screen from your image
-        <div className="relative h-full max-h-[80vh] w-full max-w-md mx-auto p-2 bg-gray-900 rounded-3xl shadow-2xl">
-           
-            {/* List of Credit Packs */}
-            <div className="space-y-3 w-full  overflow-y-auto pr-2">
-                {paywallItems.map((item) => (
-                    <PaywallItem
-                        key={item?.productId}
-                        pack={item?.rcPackage}
-                        credits={item?.credits}
-                        description={item?.description}
-                        icon={item?.icon}
-                        isProcessing={isProcessingProductId}
-                        buyCredits={buyCredits}
-                    />
-                ))}
+        <div className="flex flex-col gap-3">
+            {/* Tab Switcher — only show if subscriptions exist */}
+            {hasSubscriptions && (
+                <div className="flex bg-gray-100 rounded-xl p-1" role="tablist" aria-label="Payment options">
+                    <button
+                        role="tab"
+                        aria-selected={activeTab === 'credits'}
+                        onClick={() => selectTab('credits')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
+                            activeTab === 'credits'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                    >
+                        <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+                        Credit Packs
+                    </button>
+                    <button
+                        role="tab"
+                        aria-selected={activeTab === 'subscriptions'}
+                        onClick={() => selectTab('subscriptions')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
+                            activeTab === 'subscriptions'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                    >
+                        <Crown className="w-3.5 h-3.5" aria-hidden="true" />
+                        Plans
+                    </button>
+                </div>
+            )}
+
+            {/* Content */}
+            <div role="tabpanel" aria-label={activeTab === 'credits' ? 'Credit packs' : 'Subscription plans'}>
+                {activeTab === 'credits' ? (
+                    <div className="space-y-2">
+                        {paywallItems.length > 0 ? (
+                            paywallItems.map((item) => {
+                                const tier = TIER_STYLES[item.catalogPack.id] || DEFAULT_TIER;
+                                const isPopular = item.catalogPack.popular;
+                                const isProcessing = isProcessingProductId === item.rcPackage.product.identifier;
+
+                                return (
+                                    <button
+                                        key={item.catalogPack.id}
+                                        onClick={() => buyCredits(item.rcPackage.product.identifier)}
+                                        disabled={!!isProcessingProductId}
+                                        className={`
+                                            relative flex items-center gap-3 w-full p-3 rounded-2xl text-left transition-all duration-150
+                                            ${isPopular
+                                                ? 'bg-[#1a1a1a] ring-1 ring-black/5'
+                                                : 'bg-gray-50 hover:bg-gray-100'
+                                            }
+                                            ${isProcessingProductId ? 'opacity-60 cursor-not-allowed' : 'active:scale-[0.98]'}
+                                        `}
+                                    >
+                                        {/* Popular badge */}
+                                        {isPopular && (
+                                            <span className="absolute -top-2 left-4 text-[10px] font-bold tracking-wide uppercase bg-amber-400 text-gray-900 px-2 py-0.5 rounded-full">
+                                                Best Value
+                                            </span>
+                                        )}
+
+                                        {/* Emoji icon */}
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${isPopular ? 'bg-white/10' : tier.bg}`}>
+                                            {tier.emoji}
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-[14px] font-semibold leading-tight ${isPopular ? 'text-white' : 'text-gray-900'}`}>
+                                                {item.catalogPack.name}
+                                            </p>
+                                            <p className={`text-[12px] mt-0.5 leading-snug ${isPopular ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                {item.catalogPack.displayLabel}
+                                            </p>
+                                        </div>
+
+                                        {/* Price */}
+                                        <div className={`
+                                            flex-shrink-0 px-3.5 py-1.5 rounded-xl text-[13px] font-bold transition-all
+                                            ${isProcessing
+                                                ? 'bg-gray-200 text-gray-500'
+                                                : isPopular
+                                                    ? 'bg-white text-gray-900'
+                                                    : 'bg-[#1a1a1a] text-white'
+                                            }
+                                        `}>
+                                            {isProcessing
+                                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                : item.rcPackage.product.priceString
+                                            }
+                                        </div>
+                                    </button>
+                                );
+                            })
+                        ) : (
+                            <div className="py-8 text-center">
+                                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                                    <Coins className="w-5 h-5 text-gray-300" />
+                                </div>
+                                <p className="text-[13px] text-gray-400">No credit packs available at this time.</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {subscriptionItems.map((item) => {
+                            const isProcessing = isProcessingProductId === item.rcPackage.product.identifier;
+                            return (
+                                <button
+                                    key={item.sub.id}
+                                    onClick={() => buySubscription(item.rcPackage.product.identifier)}
+                                    disabled={!!isProcessingProductId}
+                                    className={`
+                                        relative flex items-center gap-3 w-full p-3 rounded-2xl text-left transition-all duration-150
+                                        ${item.sub.popular
+                                            ? 'bg-[#1a1a1a] ring-1 ring-black/5'
+                                            : 'bg-gray-50 hover:bg-gray-100'
+                                        }
+                                        ${isProcessingProductId ? 'opacity-60 cursor-not-allowed' : 'active:scale-[0.98]'}
+                                    `}
+                                >
+                                    {item.sub.popular && (
+                                        <span className="absolute -top-2 left-4 text-[10px] font-bold tracking-wide uppercase bg-amber-400 text-gray-900 px-2 py-0.5 rounded-full">
+                                            {item.sub.savings || 'Popular'}
+                                        </span>
+                                    )}
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.sub.popular ? 'bg-amber-400/20' : 'bg-violet-50'}`}>
+                                        <Crown className={`w-5 h-5 ${item.sub.popular ? 'text-amber-400' : 'text-violet-500'}`} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-[14px] font-semibold leading-tight ${item.sub.popular ? 'text-white' : 'text-gray-900'}`}>
+                                            {item.sub.name}
+                                        </p>
+                                        <p className={`text-[12px] mt-0.5 leading-snug ${item.sub.popular ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            {item.sub.displayLabel || item.sub.description}
+                                        </p>
+                                        {item.sub.trialDays ? (
+                                            <p className="text-[11px] mt-1 font-bold text-emerald-400">
+                                                {item.sub.trialDays}-day free trial
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className={`
+                                        flex-shrink-0 px-3.5 py-1.5 rounded-xl text-[13px] font-bold transition-all
+                                        ${isProcessing
+                                            ? 'bg-gray-200 text-gray-500'
+                                            : item.sub.popular
+                                                ? 'bg-white text-gray-900'
+                                                : 'bg-[#1a1a1a] text-white'
+                                        }
+                                    `}>
+                                        {isProcessing
+                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                            : item.rcPackage.product.priceString + (item.sub.interval === 'year' ? '/yr' : '/mo')
+                                        }
+                                    </div>
+                                </button>
+                            );
+                        })}
+                        {isPro && (
+                            <p className="text-center text-[11px] text-emerald-600 mt-1">
+                                You have an active subscription
+                            </p>
+                        )}
+                        <p className="text-center text-[10px] text-gray-400 mt-1.5">
+                            Plans renew automatically. Cancel anytime.
+                        </p>
+                    </div>
+                )}
             </div>
 
-            {/* Footer Links */}
-            <div className="flex justify-center space-x-6 text-sm mt-8 text-gray-400">
-            
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Terms</a>
-                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Privacy</a>
+            {/* Restore + Footer */}
+            <div className="flex flex-col items-center gap-1.5 pt-1">
+                {isPro && (
+                    <button
+                        onClick={() => {
+                            if (Capacitor.getPlatform() === 'android') {
+                                window.open('https://play.google.com/store/account/subscriptions', '_blank');
+                            } else if (Capacitor.getPlatform() === 'ios') {
+                                window.open('https://apps.apple.com/account/subscriptions', '_blank');
+                            }
+                        }}
+                        className="text-[11px] text-emerald-600 hover:text-emerald-500 transition-colors font-medium"
+                    >
+                        Manage Your Subscription
+                    </button>
+                )}
+                <button
+                    onClick={async () => {
+                        setIsRestoring(true);
+                        try {
+                            await (restorePurchases ? restorePurchases() : restoreSubscription());
+                        } finally {
+                            setIsRestoring(false);
+                        }
+                    }}
+                    disabled={isRestoring}
+                    className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                >
+                    {isRestoring ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                        <RotateCcw className="w-3 h-3" />
+                    )}
+                    Restore Purchases
+                </button>
+                <div className="flex justify-center space-x-4 text-[10px] text-gray-300">
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Terms</a>
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-500 transition-colors">Privacy</a>
+                </div>
+                {/* Temporary debug info */}
+                <p className="text-[8px] text-gray-300 text-center px-2 break-all">
+                    RC: {rcDebugInfo} | catalog: {catalog.subscriptions.length}s/{catalog.creditPacks.length}c | pkgs: {packages.length}
+                </p>
             </div>
         </div>
     );

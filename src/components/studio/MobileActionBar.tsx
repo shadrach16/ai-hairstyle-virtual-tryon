@@ -1,317 +1,243 @@
 // @file: MobileActionBar.tsx
+// Enhanced mobile-first action bar with back navigation and improved UX
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import {
   Loader2,
-  Download,
-  RotateCcw,
   Palette,
-  Upload, X// 👈 New import
+  Upload,
+  X,
+  ChevronLeft,
+  Wand2,
 } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
+import { cn } from '@/lib/utils';
 
-// Helper component for iOS safe area
-const MobileSafeArea = ({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => {
-  // 'safe-p-b' should be defined in your global CSS to use env(safe-area-inset-bottom)
-  return <div className={`pb-0 lg:pb-0 safe-p-b ${className}`}>{children}</div>;
-};
-
-
-type StudioState = 'upload' | 'ready' | 'processing' | 'results';
+type StudioState = 'home' | 'discover' | 'upload' | 'ready' | 'processing' | 'results';
 
 interface MobileActionBarProps {
   studioState: StudioState;
   selectedHairstyle: any;
   isGenerating: boolean;
   downloadLoading: boolean;
+  isAuthenticated?: boolean;
+  canGoBack?: boolean;
+  onBack?: () => void;
   onDownload: () => void;
   onTryAnother: () => void;
   onGenerate: () => void;
-  onShowGallery: () => void; 
-  handleUploadHairstyle: () => void; 
-  handleClearCustom: () => void; 
-  generateCustomHairstyle: () => void; 
+  onShowGallery: () => void;
+  handleUploadHairstyle: () => void;
+  handleClearCustom: () => void;
+  generateCustomHairstyle: (file: any, path: any) => void;
   customThumbnailPath: any;
   customImageFile: any;
 }
+
+// Safe area wrapper — frosted glass matching bottom nav
+const SafeBottomBar = ({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div
+    style={{ bottom: 'var(--mobile-tabbar-height, 0px)' }}
+    className={cn(
+      'fixed inset-x-0 lg:hidden z-40',
+      'bg-white border-t border-black/[0.04]',
+      className
+    )}
+  >
+    <div className="px-4 py-2.5">
+      {children}
+    </div>
+  </div>
+);
+
+// Back button
+const BackButton = ({ onClick, label = 'Back' }: { onClick: () => void; label?: string }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 transition-colors"
+  >
+    <ChevronLeft className="w-5 h-5" />
+  </button>
+);
+
+// Selected style chip — minimal
+const StylePreview = ({
+  thumbnail,
+  name,
+  price,
+  isCustom,
+  onClear,
+}: {
+  thumbnail: string;
+  name: string;
+  price: number;
+  isCustom?: boolean;
+  onClear?: () => void;
+}) => (
+  <div className="flex items-center gap-2.5 bg-gray-50/80 rounded-xl pl-1 pr-3 py-1">
+    <img
+      src={thumbnail}
+      alt={name}
+      className="w-8 h-8 rounded-lg object-cover ring-1 ring-black/[0.06]"
+    />
+    <div className="flex-1 min-w-0">
+      <p className="text-[13px] font-medium text-gray-800 truncate max-w-[120px]">
+        {isCustom ? 'Custom Style' : name}
+      </p>
+      <p className="text-[11px] text-gray-400">
+        {isCustom ? '3 credits' : `${price} credits`}
+      </p>
+    </div>
+    {onClear && (
+      <button
+        onClick={onClear}
+        className="w-6 h-6 rounded-full bg-gray-200/80 hover:bg-gray-300/80 flex items-center justify-center transition-colors"
+        aria-label="Clear selection"
+      >
+        <X className="w-3 h-3 text-gray-500" />
+      </button>
+    )}
+  </div>
+);
 
 export const MobileActionBar: React.FC<MobileActionBarProps> = ({
   studioState,
   selectedHairstyle,
   isGenerating,
   downloadLoading,
+  isAuthenticated,
+  canGoBack = false,
+  onBack,
   onDownload,
   onTryAnother,
   onGenerate,
-  onShowGallery, 
+  onShowGallery,
   handleUploadHairstyle,
   generateCustomHairstyle,
   customThumbnailPath,
   customImageFile,
   handleClearCustom,
 }) => {
-  const commonWrapperClasses =
-    'fixed inset-x-0 bottom-0 lg:hidden bg-white border-t shadow-2xl z-40';
+  // Don't show during processing, on home, discover, upload, or on results (results has its own action sheet)
+  if (studioState === 'processing' || studioState === 'home' || studioState === 'discover' || studioState === 'results' || studioState === 'upload') {
+    return null;
+  }
 
-    if ( !Capacitor.isNativePlatform() ){
-      return  (
-         customThumbnailPath ? <>
-            <div className="flex flex-col space-y-2 p-4    ">
-              <div className="flex items-center space-x-3 justify-between">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={customThumbnailPath}
-                  className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded-full"
-                />
-                <div>
-                  <p className="font-semibold text-sm">
-                     Custom Hairstyle
-                  </p>
-                  <p className="text-xs text-gray-600">
-                      3 credits 
-                  </p>
-                </div>
-              </div>
-
-                <Button
-    variant="ghost" // Use ghost for no default bg/border
-    size="icon"
-    onClick={handleClearCustom}
-    className=" w-10 h-10 rounded-full p-0 bg-gray-100 backdrop-blur-sm  border text-gray-700 hover:bg-white hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-    aria-label="Clear photo"
-  >
-    <X className="w-5 h-5" />
-  </Button>
-
-              </div>
-             
-
-              <div className='flex flex-row space-x-2 '>
-
-                   <Button
+  // --- State: 'ready' ---
+  if (studioState === 'ready') {
+    // Custom hairstyle uploaded
+    if (customThumbnailPath) {
+      return (
+        <SafeBottomBar>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <StylePreview
+                thumbnail={customThumbnailPath}
+                name="Custom Style"
+                price={3}
+                isCustom
+                onClear={handleClearCustom}
+              />
+              <button
                 onClick={handleUploadHairstyle}
-                variant="outline"
-                className="w-1/3 h-12 text-base font-semibold   flex items-center justify-center"
+                className="text-[13px] font-medium text-gray-400 hover:text-gray-600 px-2 py-1 transition-colors"
               >
-                <Upload className="w-5 h-5" />
-              Change Hairstyle
-
-              </Button>
-
-                <Button
-                  onClick={()=>generateCustomHairstyle(customImageFile,customThumbnailPath)}
-                  size="sm"
-                  className="bg-amber-600 hover:bg-amber-700 text-base h-12 px-6 font-semibold w-full"
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    'Generate Hairstyle'
-                  )}
-                </Button>
+                Change
+              </button>
             </div>
-            </div></>: <></>)
+            <div className="flex items-center gap-2">
+              {canGoBack && onBack && <BackButton onClick={onBack} />}
+              <button
+                onClick={() => generateCustomHairstyle(customImageFile, customThumbnailPath)}
+                className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-semibold shadow-sm active:scale-[0.97] transition-transform disabled:opacity-40"
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    Generate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </SafeBottomBar>
+      );
     }
 
-  // --- State: 'upload' ---
-  if (studioState === 'upload') {
-    return (
-      <MobileSafeArea className={commonWrapperClasses}>
-        <div className="p-3">
-          {/* 👈 UPDATED: Two buttons for 'upload' state */}
-          <div className="flex space-x-2">
-            <Button disabled
-              onClick={onShowGallery} // Original button: Choose Style
-              className="flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 h-12 text-base font-semibold shadow-lg">
-              <Palette className="w-5 h-5 mr-2" />
-              Choose Hairstyle
-            </Button>
-            <Button
-              onClick={handleUploadHairstyle} // New button: Upload Style
-              variant="outline" disabled
-              className=" h-12 text-base font-semibold border border-gray-300  flex items-center justify-center"
-            >
-              <Upload className="w-5 h-5   font-bold" />
-              Upload Hairstyle
-
-            </Button>
-          </div>
-        </div>
-      </MobileSafeArea>
-    );
-  }
-
-  if (studioState === 'results') {
-    return (
-      <MobileSafeArea className={commonWrapperClasses}>
-        <div className="p-3">
-          <div className="flex space-x-3">
-            <Button
-              onClick={onDownload}
-              className="flex-1 bg-amber-600 hover:bg-amber-700 h-12 text-base font-semibold"
-              disabled={downloadLoading}
-            >
-              {downloadLoading ? (
-                <Loader2 className="w-8 h-8 animate-spin" />
-              ) : (
-                <>
-                  <Download className="w-5 h-5 mr-2" />
-                  Download
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={onTryAnother}
-              variant="outline"
-              className="flex-1 h-12 text-base font-semibold"
-            >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Try Another
-            </Button>
-          </div>
-        </div>
-      </MobileSafeArea>
-    );
-  }
-
-
-  if (studioState === 'ready') {
-    return (
-      <MobileSafeArea className={commonWrapperClasses}>
-        <div className="p-3">
-          {selectedHairstyle ? (
-            <div className="flex flex-col space-y-2">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={selectedHairstyle.thumbnail}
-                  alt={selectedHairstyle.name}
-                  className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded-lg"
-                />
-                <div>
-                  <p className="font-semibold text-sm truncate w-[80%]">
-                    {selectedHairstyle.name === 'Custom Upload' ? 'Your Uploaded Style' : selectedHairstyle.name}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                      {/* Check the custom price of 3 credits */}
-                    {selectedHairstyle.id === 'user-upload-custom-style' ? '3 credits' : `${selectedHairstyle.price} credits`}
-                  </p>
-                </div>
-              </div>
-              {/* 👈 UPDATED: Three buttons for 'ready' state when style is selected */}
-              <div className="flex space-x-2 w-full">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onShowGallery}
-                  className="text-sm h-10 px-4 w-[25%]" 
-                >
-                  <Palette className="w-4 h-4" /> Change
-                </Button>
-       
-                <Button
-                  onClick={onGenerate}
-                  size="sm"
-                  className="bg-amber-600 hover:bg-amber-700 text-sm h-10 px-6 font-semibold w-full"
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    'Generate HairStyle'
-                  )}
-                </Button>
-              </div>
-            </div>
-          )  :  customThumbnailPath ? (
-            <div className="flex flex-col space-y-2">
-              <div className="flex items-center space-x-3 justify-between">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={customThumbnailPath}
-                  className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded-full"
-                />
-                <div>
-                  <p className="font-semibold text-sm">
-                     Custom Hairstyle
-                  </p>
-                  <p className="text-xs text-gray-600">
-                      3 credits 
-                  </p>
-                </div>
-              </div>
-
-                <Button
-    variant="ghost" // Use ghost for no default bg/border
-    size="icon"
-    onClick={handleClearCustom}
-    className=" w-9 h-9 rounded-full p-0 bg-gray-100 backdrop-blur-sm  border text-gray-700 hover:bg-white hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-    aria-label="Clear photo"
-  >
-    <X className="w-5 h-5" />
-  </Button>
-
-              </div>
-             
-
-              <div className='flex flex-row space-x-2 '>
-
-                   <Button
-                onClick={handleUploadHairstyle}
-                variant="outline"
-                className="w-1/3 h-10 text-base font-semibold   flex items-center justify-center"
-              >
-                <Upload className="w-5 h-5" />
-              Change
-
-              </Button>
-
-                <Button
-                  onClick={()=>generateCustomHairstyle(customImageFile,customThumbnailPath)}
-                  size="sm"
-                  className="bg-amber-600 hover:bg-amber-700 text-sm h-10 px-6 font-semibold w-full"
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    'Generate Hairstyle'
-                  )}
-                </Button>
-            </div>
-            </div>
-          ): (
-     
-            <div className="flex space-x-2">
-              <Button
+    // Standard hairstyle selected
+    if (selectedHairstyle) {
+      return (
+        <SafeBottomBar>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <StylePreview
+                thumbnail={selectedHairstyle.thumbnail}
+                name={selectedHairstyle.name}
+                price={selectedHairstyle.price}
+              />
+              <button
                 onClick={onShowGallery}
-                className="flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 h-12 text-base font-semibold shadow-lg">
-                <Palette className="w-5 h-5 mr-2" />
-                Choose Hairstyle
-              </Button>
-              <Button
-                onClick={handleUploadHairstyle}
-                variant="outline"
-                className=" h-12 text-base font-semibold   flex items-center justify-center"
+                className="text-[13px] font-medium text-gray-400 hover:text-gray-600 px-2 py-1 transition-colors"
               >
-                <Upload className="w-5 h-5" />
-              Upload Hairstyle
-
-              </Button>
+                Change
+              </button>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              {canGoBack && onBack && <BackButton onClick={onBack} />}
+              <button
+                onClick={onGenerate}
+                className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-semibold shadow-sm active:scale-[0.97] transition-transform disabled:opacity-40"
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    Generate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </SafeBottomBar>
+      );
+    }
+
+    // No hairstyle selected yet
+    return (
+      <SafeBottomBar>
+        <div className="flex items-center gap-2">
+          {canGoBack && onBack && <BackButton onClick={onBack} />}
+          <button
+            onClick={onShowGallery}
+            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-semibold shadow-sm active:scale-[0.97] transition-transform"
+          >
+            <Palette className="w-4 h-4" />
+            Choose Hairstyle
+          </button>
+          <button
+            onClick={handleUploadHairstyle}
+            className="h-11 w-11 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-150 transition-colors"
+            aria-label="Upload custom hairstyle"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
         </div>
-      </MobileSafeArea>
+      </SafeBottomBar>
     );
   }
 
-  // Do not render anything for 'processing' state
   return null;
 };
+
+export default MobileActionBar;

@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface ProcessingStateProps {
   selectedPhoto: File;
-  selectedHairstyle: { name: string; id: string } | null; // More specific type
-  progress: number; // Expected to be 0-100 from useGeneration.ts
-  onComplete?: () => void; // Optional callback when processing and countdown are done
+  selectedHairstyle: { name: string; id: string } | null;
+  progress: number;
+  onComplete?: () => void;
 }
+
+const steps = [
+  { label: 'Analyzing photo', threshold: 30 },
+  { label: 'Applying style', threshold: 65 },
+  { label: 'Refining details', threshold: 90 },
+  { label: 'Finishing up', threshold: 100 },
+];
 
 export const ProcessingState: React.FC<ProcessingStateProps> = ({
   selectedPhoto,
@@ -14,111 +22,139 @@ export const ProcessingState: React.FC<ProcessingStateProps> = ({
   progress,
   onComplete,
 }) => {
-  // FIXED: progress is already 0-100. We just cap it at 99 for the visual progress bar.
-  const visualProgressPercent = Math.min(progress, 99);
-
-  console.log('Current Progress:', progress); // For debugging
-  console.log('Visual Progress:', visualProgressPercent); // For debugging
-
-  // Countdown state, initialized to 12 seconds
+  const visualProgress = Math.min(Math.max(progress, 0), 99);
+  const displayProgress = Math.round(visualProgress);
   const [countdown, setCountdown] = useState(12);
   const [processingComplete, setProcessingComplete] = useState(false);
 
-  // Effect to handle the progress bar reaching 99% (Transition to Countdown)
-  // FIXED: Trigger condition changed from 0.99 (decimal) to 99 (integer)
+  const photoUrl = useMemo(() => URL.createObjectURL(selectedPhoto), [selectedPhoto]);
+
   useEffect(() => {
-    if (progress >= 99 && !processingComplete) { 
+    return () => URL.revokeObjectURL(photoUrl);
+  }, [photoUrl]);
+
+  useEffect(() => {
+    if (progress >= 99 && !processingComplete) {
       setProcessingComplete(true);
     }
   }, [progress, processingComplete]);
 
-
-  // Effect for the countdown timer
   useEffect(() => {
     if (processingComplete && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown((prevCountdown) => prevCountdown - 1);
-      }, 1000); // Decrement every second
-      return () => clearTimeout(timer); // Clean up timeout
+      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
     } else if (processingComplete && countdown === 0) {
-      // Both processing and countdown are done
-      if (onComplete) {
-        onComplete();
-      }
+      onComplete?.();
     }
   }, [processingComplete, countdown, onComplete]);
 
+  const activeStepIndex = steps.findIndex(s => visualProgress < s.threshold);
+  const currentStep = steps[activeStepIndex >= 0 ? activeStepIndex : steps.length - 1];
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 rounded-lg text-center max-w-lg mx-auto my-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 animate-fade-in">
-        Applying Hairstyle
-      </h2>
-
-      {/* Image and Sparkle Overlay */}
-      <div className="relative w-40 h-40 sm:w-56 sm:h-56 mx-auto mb-8 animate-scale-in">
+    <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 py-10">
+      {/* ── Photo with animated ring ────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="relative mb-8"
+      >
+        {/* Spinning gradient ring */}
+        <div className="absolute -inset-[3px] rounded-full animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,#1a1a1a,#d4d4d4,#1a1a1a)]" />
+        <div className="absolute -inset-[1px] rounded-full bg-white" />
         <img
-          src={URL.createObjectURL(selectedPhoto)}
-          alt="Your original photo"
-          className="w-full h-full object-cover rounded-full border-4 border-amber-300 shadow-md"
+          src={photoUrl}
+          alt="Your photo"
+          className="relative w-32 h-32 rounded-full object-cover"
         />
-        <div className="absolute inset-0   rounded-full flex items-center justify-center animate-pulse-light">
-          <Sparkles className="w-4 h-4 text-white drop-shadow-lg" />
-        </div>
-      </div>
+      </motion.div>
 
-      <h3 className="text-xl font-semibold text-gray-700 mb-4 animate-slide-up truncate">
-        Applying <span className="text-amber-600">{selectedHairstyle?.name?.slice(0,10) || 'style'}</span>...
-      </h3>
+      {/* ── Style name ──────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+        className="text-center mb-8"
+      >
+        <p className="text-[13px] text-gray-400 mb-1">Applying</p>
+        <h2 className="text-[22px] font-bold text-gray-900 tracking-tight leading-tight">
+          {selectedHairstyle?.name || 'Hairstyle'}
+        </h2>
+      </motion.div>
 
-      {/* Progress Bar with Percentage */}
-      <div className="w-full max-w-sm mx-auto mb-4">
-        <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
-          <div
-            className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${visualProgressPercent}%` }}
-            role="progressbar"
-            aria-valuenow={visualProgressPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          />
+      {/* ── Progress section ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.4 }}
+        className="w-full max-w-xs space-y-4"
+      >
+        {/* Thin progress bar */}
+        <div>
+          <div className="w-full h-[5px] bg-gray-100 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-[#1a1a1a] rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${visualProgress}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[12px] font-medium text-gray-400">
+              {currentStep.label}
+            </span>
+            <span className="text-[12px] font-semibold text-gray-900 tabular-nums">
+              {displayProgress}%
+            </span>
+          </div>
         </div>
-        <p className="text-sm font-medium text-gray-600 mt-2">
-          {String(visualProgressPercent).slice(0,2)}% Complete
+
+        {/* Step dots */}
+        <div className="flex items-center justify-center gap-1.5 pt-1">
+          {steps.map((step, i) => {
+            const done = activeStepIndex > i || (activeStepIndex === -1);
+            const active = activeStepIndex === i;
+            return (
+              <div key={step.label} className="flex items-center gap-1.5">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-500 ${
+                    done
+                      ? 'w-6 bg-[#1a1a1a]'
+                      : active
+                      ? 'w-6 bg-[#1a1a1a]/40'
+                      : 'w-1.5 bg-gray-200'
+                  }`}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ETA */}
+        <p className="text-center text-[11px] text-gray-300 pt-2">
+          {progress < 30
+            ? 'About 20–30 seconds'
+            : progress < 60
+            ? 'About 10–15 seconds'
+            : progress < 90
+            ? 'A few seconds left'
+            : 'Almost there'}
         </p>
-      </div>
+      </motion.div>
 
-    
-
-      {/* Optional: Add some subtle animations */}
-      <style jsx>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scale-in {
-          from { opacity: 0; transform: scale(0.8); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse-light {
-          0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
-          70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
-        }
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-        .animate-scale-in { animation: scale-in 0.6s ease-out forwards; }
-        .animate-slide-up { animation: slide-up 0.5s ease-out 0.2s forwards; }
-        .animate-pulse-light { animation: pulse-light 2s infinite; }
-        .animate-fade-in-up { animation: fade-in-up 0.5s ease-out 0.4s forwards; }
-      `}</style>
+      {/* ── Refund assurance ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6, duration: 0.4 }}
+        className="flex items-center gap-1.5 mt-10"
+      >
+        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+        <span className="text-[11px] text-gray-300">
+          Auto-refunded if generation fails
+        </span>
+      </motion.div>
     </div>
   );
 };

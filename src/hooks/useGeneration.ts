@@ -21,6 +21,10 @@ export function useGeneration() {
           if (result.data.status === 'completed') {
             setIsGenerating(false);
             setProgress(100);
+            // A4: Show quality feedback if score was low
+            if (result.data.qualityPassed === false && result.data.qualityDefect) {
+              toast.warning(`Result quality note: ${result.data.qualityDefect}`, { duration: 6000 });
+            }
              clearInterval(interval)
           } else if (result.data.status === 'failed') {
             setIsGenerating(false);
@@ -44,12 +48,22 @@ export function useGeneration() {
     return () => clearInterval(interval);
   }, [generationId]);
 
-  const generateHairstyle = async (hairstyleId: string,mimeType: string, imageFile: File) => {
+  const generateHairstyle = async (hairstyleId: string, mimeType: string, imageFile: File, generationMode: string = 'hd') => {
     try {
       setIsGenerating(true);
-      setProgress(10);
+      setProgress(5);
+
+      // A3: Input gate — validate selfie before spending credits
+      const validation = await apiService.validateInput(imageFile);
+      if (!validation.success) {
+        setIsGenerating(false);
+        const msg = validation.suggestion || validation.issues?.[0]?.message || 'Photo does not meet quality requirements.';
+        toast.error(msg, { duration: 5000 });
+        return { success: false, message: msg, code: 'INPUT_GATE_FAILED' };
+      }
+      setProgress(15);
       
-      const result = await apiService.generateHairstyle(hairstyleId,mimeType, imageFile);
+      const result = await apiService.generateHairstyle(hairstyleId, mimeType, imageFile, generationMode);
       
       if (result.success) {
         setGenerationId(result.data.generationId);
@@ -72,7 +86,21 @@ export function useGeneration() {
   const handleCustomGenerator = async (imageFile: File,imageMimeType:any,selectedPhoto:any) => {
     
      setIsGenerating(true);
-      setProgress(10);
+      setProgress(5);
+
+    // A3: Input gate — validate user's selfie photo before spending credits
+    try {
+      const validation = await apiService.validateInput(selectedPhoto);
+      if (!validation.success) {
+        setIsGenerating(false);
+        const msg = validation.suggestion || validation.issues?.[0]?.message || 'Your selfie does not meet quality requirements.';
+        toast.error(msg, { duration: 5000 });
+        return { success: false, message: msg, code: 'INPUT_GATE_FAILED' };
+      }
+    } catch {
+      // Fail-open: proceed if validation service is down
+    }
+    setProgress(10);
     try {
       // 2. Set state to processing while AI analyzes
       const result = await apiService.analyzeHairstyleImage(imageFile,imageMimeType,selectedPhoto);
@@ -107,6 +135,7 @@ export function useGeneration() {
 
   return {
     isGenerating,
+    generationId,
     generationStatus,
     progress,
     generateHairstyle,

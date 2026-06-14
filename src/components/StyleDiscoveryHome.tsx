@@ -1,0 +1,445 @@
+// StyleDiscoveryHome.tsx — Style-first discovery home screen
+// Hero card + horizontal carousels + persistent upload CTA
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { apiService, type Hairstyle, type StyleCollection, type StyleRecommendation } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Camera,
+  ChevronRight,
+  Coins,
+  Flame,
+  TrendingUp,
+  Star,
+  Lock,
+  Image as ImageIcon,
+  ImagePlus,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface StyleDiscoveryHomeProps {
+  onStyleSelect: (hairstyle: Hairstyle) => void;
+  onLockedTap?: (hairstyle: Hairstyle) => void;
+  onUploadPhoto: () => void;
+  onSeeAll: () => void;
+  onCustomStyleUpload?: () => void;
+  userCredits: number;
+  isAuthenticated: boolean;
+  selectedPhoto: File | null;
+}
+
+// ─── Hero Card ──────────────────────────────────────────────────────────────
+
+const HeroCard: React.FC<{
+  hairstyle: Hairstyle | null;
+  onTap: (h: Hairstyle) => void;
+  isLoading: boolean;
+}> = ({ hairstyle, onTap, isLoading }) => {
+  if (isLoading || !hairstyle) {
+    return (
+      <div className="mx-4 mb-5">
+        <Skeleton className="w-full aspect-[16/10] rounded-3xl" />
+      </div>
+    );
+  }
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      onClick={() => onTap(hairstyle)}
+      className="mx-4 mb-5 block w-[calc(100%-2rem)] text-left group"
+    >
+      <div className="relative aspect-[16/10] rounded-3xl overflow-hidden shadow-lg shadow-gray-200/60">
+        <img
+          src={hairstyle.thumbnail}
+          alt={hairstyle.name}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+        {/* Top-left badge */}
+        {hairstyle.isNew && (
+          <div className="absolute top-3.5 left-3.5">
+            <span className="px-2.5 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-semibold text-white tracking-wide uppercase">
+              New
+            </span>
+          </div>
+        )}
+
+        {/* Top-right price */}
+        <div className="absolute top-3.5 right-3.5">
+          <span className="flex items-center gap-1 px-2.5 py-1 bg-black/30 backdrop-blur-md rounded-full text-[12px] font-semibold text-white">
+            <Coins className="w-3.5 h-3.5 text-amber-300" />
+            {hairstyle.price} cr
+          </span>
+        </div>
+
+        {/* Bottom info */}
+        <div className="absolute bottom-0 inset-x-0 p-4 pb-4.5">
+          <p className="text-[11px] font-medium text-white/60 uppercase tracking-wider mb-0.5">
+            Featured Style
+          </p>
+          <h2 className="text-xl font-bold text-white leading-tight mb-1">
+            {hairstyle.name}
+          </h2>
+          <div className="flex items-center gap-2">
+            {hairstyle.category && (
+              <span className="px-2 py-0.5 bg-white/15 backdrop-blur-sm rounded-full text-[10px] font-medium text-white/80">
+                {hairstyle.category}
+              </span>
+            )}
+            {hairstyle.culturalOrigin && (
+              <span className="px-2 py-0.5 bg-white/15 backdrop-blur-sm rounded-full text-[10px] font-medium text-white/80">
+                {hairstyle.culturalOrigin}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.button>
+  );
+};
+
+// ─── Compact Style Card (for carousels) ─────────────────────────────────────
+
+const CompactStyleCard: React.FC<{
+  hairstyle: Hairstyle;
+  canAfford: boolean;
+  onSelect: (h: Hairstyle) => void;
+  onLockedTap?: (h: Hairstyle) => void;
+  index: number;
+  reason?: string;
+}> = ({ hairstyle, canAfford, onSelect, onLockedTap, index, reason }) => (
+  <motion.button
+    initial={{ opacity: 0, y: 8 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3, delay: index * 0.04 }}
+    onClick={() => canAfford ? onSelect(hairstyle) : onLockedTap?.(hairstyle)}
+    className={cn(
+      'flex-shrink-0 w-[108px] group text-left',
+      !canAfford && 'opacity-60'
+    )}
+  >
+    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 shadow-sm shadow-gray-200/50">
+      <img
+        src={hairstyle.thumbnail}
+        alt={hairstyle.name}
+        loading="lazy"
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+
+      {!canAfford && (
+        <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px] flex items-center justify-center rounded-2xl">
+          <div className="w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <Lock className="w-3.5 h-3.5 text-white" />
+          </div>
+        </div>
+      )}
+
+      {/* Price chip */}
+      <div className="absolute top-2 right-2 flex items-center gap-0.5 px-1.5 py-0.5 bg-black/35 backdrop-blur-sm rounded-full">
+        <Coins className="w-2.5 h-2.5 text-amber-300" />
+        <span className="text-[9px] font-bold text-white">{hairstyle.price}</span>
+      </div>
+
+      {hairstyle.isNew && (
+        <div className="absolute top-2 left-2">
+          <span className="px-1.5 py-0.5 bg-emerald-500/90 backdrop-blur-sm rounded-full text-[8px] font-bold text-white uppercase tracking-wide">
+            New
+          </span>
+        </div>
+      )}
+
+      {/* Name at bottom */}
+      <div className="absolute bottom-0 inset-x-0 p-2">
+        <p className="text-[11px] font-semibold text-white leading-tight line-clamp-1">
+          {hairstyle.name}
+        </p>
+      </div>
+    </div>
+    {reason && (
+      <p className="mt-1 px-0.5 text-[9px] text-gray-400 leading-tight line-clamp-1">
+        {reason}
+      </p>
+    )}
+  </motion.button>
+);
+
+// ─── Carousel Section ───────────────────────────────────────────────────────
+
+interface CarouselSectionProps {
+  title: string;
+  emoji?: string;
+  icon?: React.ReactNode;
+  hairstyles: (Hairstyle & { recommendationReason?: string })[];
+  userCredits: number;
+  onSelect: (h: Hairstyle) => void;
+  onLockedTap?: (h: Hairstyle) => void;
+  onSeeAll?: () => void;
+  showReasons?: boolean;
+}
+
+const CarouselSection: React.FC<CarouselSectionProps> = ({
+  title,
+  emoji,
+  icon,
+  hairstyles,
+  userCredits,
+  onSelect,
+  onLockedTap,
+  onSeeAll,
+  showReasons,
+}) => {
+  if (!hairstyles?.length) return null;
+
+  return (
+    <div className="mb-5">
+      <div className="flex items-center justify-between px-4 mb-2.5">
+        <h3 className="text-[15px] font-bold text-gray-900 flex items-center gap-1.5">
+          {emoji && <span className="text-base">{emoji}</span>}
+          {icon}
+          {title}
+        </h3>
+        {onSeeAll && (
+          <button
+            onClick={onSeeAll}
+            className="text-[12px] font-semibold text-gray-500 hover:text-gray-900 flex items-center gap-0.5 transition-colors"
+          >
+            See all
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="overflow-x-auto overflow-y-hidden scrollbar-none">
+        <div className="flex gap-2.5 px-4" style={{ width: 'max-content' }}>
+          {hairstyles.map((h, i) => (
+            <CompactStyleCard
+              key={h._id || h.id}
+              hairstyle={h}
+              canAfford={userCredits >= h.price}
+              onSelect={onSelect}
+              onLockedTap={onLockedTap}
+              index={i}
+              reason={showReasons ? h.recommendationReason : undefined}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Carousel Skeleton ──────────────────────────────────────────────────────
+
+const CarouselSkeleton: React.FC = () => (
+  <div className="mb-5">
+    <div className="flex items-center justify-between px-4 mb-2.5">
+      <Skeleton className="h-5 w-28" />
+      <Skeleton className="h-4 w-14" />
+    </div>
+    <div className="flex gap-2.5 px-4 overflow-hidden">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex-shrink-0 w-[108px]">
+          <Skeleton className="aspect-[3/4] rounded-2xl" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// ─── Upload CTA Bar ─────────────────────────────────────────────────────────
+
+const UploadCTABar: React.FC<{
+  onUpload: () => void;
+  hasPhoto: boolean;
+}> = ({ onUpload, hasPhoto }) => (
+  <div className="px-4 pb-3 pt-1">
+    <button
+      onClick={onUpload}
+      className={cn(
+        'w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.98]',
+        'bg-[#1a1a1a] text-white shadow-lg shadow-gray-900/10'
+      )}
+    >
+      {hasPhoto ? (
+        <>
+          <ImageIcon className="w-[18px] h-[18px]" />
+          Change Photo
+        </>
+      ) : (
+        <>
+          <Camera className="w-[18px] h-[18px]" />
+          Upload photo to try on
+        </>
+      )}
+    </button>
+  </div>
+);
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
+export const StyleDiscoveryHome: React.FC<StyleDiscoveryHomeProps> = ({
+  onStyleSelect,
+  onLockedTap,
+  onUploadPhoto,
+  onSeeAll,
+  onCustomStyleUpload,
+  userCredits,
+  isAuthenticated,
+  selectedPhoto,
+}) => {
+  const [collections, setCollections] = useState<StyleCollection[]>([]);
+  const [forYou, setForYou] = useState<StyleRecommendation[]>([]);
+  const [trending, setTrending] = useState<StyleRecommendation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Featured hairstyle = random trending style, rotates daily
+  const featuredStyle = useMemo<Hairstyle | null>(() => {
+    if (trending.length > 0) {
+      const daysSinceEpoch = Math.floor(Date.now() / 86400000);
+      return trending[daysSinceEpoch % trending.length];
+    }
+    for (const col of collections) {
+      if (col.hairstyles?.length > 0) return col.hairstyles[0];
+    }
+    return null;
+  }, [trending, collections]);
+
+  // Load data
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      const [colRes, recRes, trendRes] = await Promise.all([
+        apiService.getCollections(),
+        apiService.getForYouRecommendations({ limit: 10 }),
+        apiService.getTrendingStyles({ limit: 10 }),
+      ]);
+      if (cancelled) return;
+      if (colRes.success) setCollections(colRes.data);
+      if (recRes.success) setForYou(recRes.data);
+      if (trendRes.success) setTrending(trendRes.data);
+      setIsLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto overscroll-contain pb-4">
+        {/* Greeting + Upload Hairstyle */}
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-[22px] font-bold text-gray-900 tracking-tight">
+                Discover Styles
+              </h1>
+              <p className="text-[13px] text-gray-400 mt-0.5">
+                Find your next look
+              </p>
+            </div>
+            {onCustomStyleUpload && (
+              <button
+                onClick={onCustomStyleUpload}
+                className="flex items-center gap-1.5 px-3 py-1.5 mt-0.5
+                           bg-gray-100 hover:bg-gray-200 rounded-full
+                           active:scale-[0.96] transition-all duration-150 lg:hidden"
+              >
+                <ImagePlus className="w-4 h-4 text-gray-600" />
+                <span className="text-[12px] font-semibold text-gray-700">Upload</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Hero Card */}
+        <HeroCard
+          hairstyle={featuredStyle}
+          onTap={onStyleSelect}
+          isLoading={isLoading}
+        />
+
+        {/* Loading state */}
+        {isLoading && (
+          <>
+            <CarouselSkeleton />
+            <CarouselSkeleton />
+          </>
+        )}
+
+        {/* Trending Now */}
+        {trending.length > 0 && (
+          <CarouselSection
+            title="Trending Now"
+            icon={<Flame className="w-4 h-4 text-orange-500" />}
+            hairstyles={trending.filter(h => h._id !== featuredStyle?._id && h.id !== featuredStyle?.id).slice(0, 10)}
+            userCredits={userCredits}
+            onSelect={onStyleSelect}
+            onLockedTap={onLockedTap}
+            onSeeAll={onSeeAll}
+          />
+        )}
+
+        {/* For You */}
+        {forYou.length > 0 && (
+          <CarouselSection
+            title="For You"
+            emoji="💡"
+            hairstyles={forYou}
+            userCredits={userCredits}
+            onSelect={onStyleSelect}
+            onLockedTap={onLockedTap}
+            onSeeAll={onSeeAll}
+            showReasons
+          />
+        )}
+
+        {/* Collection carousels */}
+        {collections.map((col) => {
+          if (!col.hairstyles?.length) return null;
+          return (
+            <CarouselSection
+              key={col._id}
+              title={col.name}
+              emoji={col.emoji}
+              hairstyles={col.hairstyles}
+              userCredits={userCredits}
+              onSelect={onStyleSelect}
+              onLockedTap={onLockedTap}
+              onSeeAll={onSeeAll}
+            />
+          );
+        })}
+
+        {/* Empty state fallback */}
+        {!isLoading && collections.length === 0 && trending.length === 0 && forYou.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+              <Star className="w-7 h-7 text-gray-300" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-700 mb-1">
+              No styles available
+            </h3>
+            <p className="text-sm text-gray-400">
+              Check back soon for new looks
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Persistent Upload CTA - pinned at bottom */}
+      <UploadCTABar onUpload={onUploadPhoto} hasPhoto={!!selectedPhoto} />
+    </div>
+  );
+};
+
+export default StyleDiscoveryHome;

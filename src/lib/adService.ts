@@ -11,7 +11,10 @@ import {
 // --- Configuration Constants ---
 const PRODUCTION_APP_ID = 'ca-app-pub-3840102724542989~4033396773'; 
 // 🚨 Production Rewarded Ad Unit ID
-const PRODUCTION_REWARDED_AD_ID = 'ca-app-pub-3840102724542989/6060067964';
+const PRODUCTION_REWARDED_AD_ID = 'ca-app-pub-3840102724542989/2738328681';
+
+// Production mode - account approved
+const USE_TEST_ADS = false;
 
 // --- Type Definitions (Kept for clarity) ---
 export interface AdConfig {
@@ -52,7 +55,7 @@ class AdService {
         this.admobPlugin = AdMob;
 
         await this.admobPlugin.initialize({
-         appId: PRODUCTION_APP_ID,
+          initializeForTesting: false,
         });
 
         console.log('AdMob initialized successfully .');
@@ -112,7 +115,7 @@ class AdService {
     this.areListenersAdded = true;
   }
 
-  static async showRewardedAd(testMode: boolean = true): Promise<AdResult> {
+  static async showRewardedAd(testMode: boolean = false): Promise<AdResult> {
     try {
       await this.initialize();
 
@@ -133,10 +136,13 @@ class AdService {
     if (!this.admobPlugin) return { success: false, completed: false };
 
 
-    // Use the PRODUCTION Ad Unit ID
+    // Use production ad unit ID
     const adUnitId = PRODUCTION_REWARDED_AD_ID;
 
-    const prepareOptions: RewardAdOptions = { adId: adUnitId };
+    const prepareOptions: RewardAdOptions = {
+      adId: adUnitId,
+      isTesting: false,
+    };
 
     return new Promise<AdResult>(async (resolve) => {
       let rewardReceived: AdMobRewardItem | undefined;

@@ -1,6 +1,6 @@
 // src/pages/StudioPage.tsx
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Loader2, Download, RotateCcw } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 // ✅ UI COMPONENTS
@@ -11,17 +11,34 @@ import MobileHairstyleModal from '@/components/MobileHairstyleModal';
 import PricingModal from '@/components/PricingModal';
 import OnboardingGuide from '@/components/OnboardingGuide';
 import HomePage from '@/components/HomePage';
+import HistoryPage from '@/components/HistoryPage';
+import MobileProfileHub from '@/components/MobileProfileHub';
+import MobileBottomNavigation from '@/components/MobileBottomNavigation';
+import RewardsCenterModal from '@/components/RewardsCenterModal';
+import RateAppModal from '@/components/RateAppModal';
+import { PreGenerationSheet } from '@/components/PreGenerationSheet';
+import { CustomStyleSheet } from '@/components/studio/CustomStyleSheet';
+import { CameraCaptureOverlay } from '@/components/studio/CameraCaptureOverlay';
+
+import { HairstyleGridSkeleton } from '@/components/skeletons';
 
 // ✅ NEWLY EXTRACTED COMPONENTS
-// (These would be moved to their own files)
 import { UploadState } from '@/components/studio/UploadState';
 import { ProcessingState } from '@/components/studio/ProcessingState';
 import { ReadyState } from '@/components/studio/ReadyState';
+import { StyleCarousel } from '@/components/studio/StyleCarousel';
 import { MobileActionBar } from '@/components/studio/MobileActionBar';
-import ResultsViewer from '@/components/ResultsViewer'; // Already external
+import ResultsViewer from '@/components/ResultsViewer';
+import SavedLooksPage from '@/components/SavedLooksPage';
 import { StudioStepper } from '@/components/studio/StudioStepper';
 import { useStudioPageLogic } from '@/hooks/useStudioPageLogic';
 import AuthModal from '@/components/AuthModal';
+import { apiService } from '@/lib/api';
+
+// ✅ STYLE-FIRST FLOW COMPONENTS
+import StyleDiscoveryHome from '@/components/StyleDiscoveryHome';
+import StyleDetailSheet from '@/components/StyleDetailSheet';
+import ConfirmGenerateScreen from '@/components/ConfirmGenerateScreen';
  
 
 // --- MAIN COMPONENT ---
@@ -39,37 +56,85 @@ export default function StudioPage() {
     showMobileGallery,
     showOnboarding,
     showAuthModal,
+    showRewardsCenter,
+    showPreGenerationSheet,
     
     // Derived State
     user,
     isAuthenticated,
+    refreshUser,
     hairstyles,
     hairstylesLoading,
     isGenerating,
+    generationId,
     generationStatus,
     progress,
     customThumbnailPath,
     customImageFile,
+    activeShellTab,
+    isMobileShellEnabled,
 
     // Handlers
     handleCloseOnboarding,
+    showHelp,
     handlePhotoSelect,
     handleClearPhoto,
     handleHairstyleSelect,
     handleMobileHairstyleSelect,
     handleGenerateStyle,
+    handleRequestGenerate,
+    handleDismissPreGeneration,
     handleDownload,
     handlePurchase,
     handleTryAnother,
+    handleRetrySameStyle,
     handleSignOutWithHaptic,
     handleDeleteAccount,
     setShowPricing,
     setShowMobileGallery,
     setShowAuthModal,
-handleUploadHairstyle,
+    setShowRewardsCenter,
+    handleUploadHairstyle,
     generateCustomHairstyle,
-    handleClearCustom
+    handleClearCustom,
+    handleCustomStyleFAB,
+    handleCustomStylePick,
+    showCustomStyleSheet,
+    setShowCustomStyleSheet,
+    showCameraCapture,
+    setShowCameraCapture,
+    handleCameraCapture,
+    showRateApp,
+    setShowRateApp,
+    
+    // Style-first flow
+    handleStyleFirstSelect,
+    handleGoToDiscover,
+    handleDiscoverUpload,
+    
+    // Navigation
+    canGoBack,
+    handleBack,
+    handleShellNavigate,
   } = useStudioPageLogic();
+
+  // Referral code for share feature
+  const [referralCode, setReferralCode] = useState<string>('');
+  // Style detail sheet state (for discover flow)
+  const [styleDetailTarget, setStyleDetailTarget] = useState<any>(null);
+  // Locked style tap state (for auth prompt)
+  const [lockedStyleTap, setLockedStyleTap] = useState<any>(null);
+
+  // Fetch referral code when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      apiService.getReferralInfo().then(result => {
+        if (result.success && result.data.referralCode) {
+          setReferralCode(result.data.referralCode);
+        }
+      });
+    }
+  }, [isAuthenticated]);
 
   // Page title effect remains here as it's a view concern
   useEffect(() => {
@@ -78,97 +143,151 @@ handleUploadHairstyle,
 
   // This renders the correct "view" based on the current state
   const renderStudioState = () => {
-    switch (studioState) { 
+    switch (studioState) {
+      case 'discover':
+        return (
+          <StyleDiscoveryHome
+            onStyleSelect={(hairstyle) => setStyleDetailTarget(hairstyle)}
+            onLockedTap={(hairstyle) => {
+              if (!isAuthenticated) {
+                setLockedStyleTap(hairstyle);
+              } else {
+                setShowPricing(true);
+              }
+            }}
+            onUploadPhoto={handleDiscoverUpload}
+            onSeeAll={() => setShowMobileGallery(true)}
+            onCustomStyleUpload={handleCustomStyleFAB}
+            userCredits={user?.credits || 0}
+            isAuthenticated={isAuthenticated}
+            selectedPhoto={selectedPhoto}
+          />
+        ); 
       case 'upload':
-        return ( <>
-
-  {!showOnboarding   && (
-        <div className="w-full pt-4   sm:px-4 flex justify-center">
-          <StudioStepper activeState={studioState} className='w-full' />
-        </div>
-      )}
+        return (
           <UploadState
             uploadMode={uploadMode}
             selectedPhoto={selectedPhoto}
             isAuthenticated={isAuthenticated}
+            selectedHairstyle={selectedHairstyle}
             onPhotoSelect={handlePhotoSelect}
             onClearPhoto={handleClearPhoto}
+            onStyleSelect={handleHairstyleSelect}
+            onBack={handleBack}
           />
-          </>
         );
       case 'processing':
         return (
-          selectedPhoto && ( <>
-
-             {!showOnboarding   && (
-        <div className="w-full pt-4 px-2 sm:px-4 flex justify-center">
-          <StudioStepper activeState={studioState} className='w-full' />
-        </div>
-      )}
+          selectedPhoto && (
             <ProcessingState
               selectedPhoto={selectedPhoto}
               selectedHairstyle={selectedHairstyle}
               progress={progress}
             />
-            </>
           )
         );
       case 'results':
         return (
-          <>
-            <ResultsViewer
-              selectedPhoto={selectedPhoto}
-              generationStatus={generationStatus}
-              selectedHairstyle={selectedHairstyle}
-            />
-            {/* Desktop-only action buttons */}
-            <div className="hidden sm:block">
-              <div className="flex space-x-3">
-                <Button
-                  onClick={handleDownload}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 h-12 text-base font-semibold"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Download
-                </Button>
-                <Button
-                  onClick={handleTryAnother}
-                  variant="outline"
-                  className="flex-1 h-12 text-base font-semibold"
-                >
-                  <RotateCcw className="w-5 h-5 mr-2" />
-                  Try Another
-                </Button>
-              </div>
-            </div>
-          </>
+          <ResultsViewer
+            selectedPhoto={selectedPhoto}
+            generationStatus={generationStatus}
+            generationId={generationId}
+            selectedHairstyle={selectedHairstyle}
+            referralCode={referralCode}
+            isPro={user?.isPro || false}
+            isGuest={user?.isGuest || false}
+            availableCredits={user?.credits}
+            onTryAnother={handleTryAnother}
+            onRetrySameStyle={handleRetrySameStyle}
+            onShowPricing={() => setShowPricing(true)}
+            onShowRewards={() => setShowRewardsCenter(true)}
+            onShowAuth={() => setShowAuthModal(true)}
+          />
         );
       case 'ready':
       default:
-        return (
-          selectedPhoto && (<>
-                  {!showOnboarding   && (
-        <div className="w-full pt-4 mb-8 px-2 sm:px-4 flex justify-center">
-          <StudioStepper activeState={studioState} className='w-full' />
-        </div>
-      )}
-            <ReadyState
+        // If photo + style both exist, show confirm & generate screen
+        if (selectedPhoto && selectedHairstyle) {
+          return (
+            <ConfirmGenerateScreen
               selectedPhoto={selectedPhoto}
               selectedHairstyle={selectedHairstyle}
+              userCredits={user?.credits || 0}
+              isPro={user?.isPro || false}
               isAuthenticated={isAuthenticated}
-              onClearPhoto={handleClearPhoto}
+              onGenerate={handleGenerateStyle}
+              onBack={handleBack}
+              onBuyCredits={() => setShowPricing(true)}
             />
+          );
+        }
+        // If only photo exists (no style), show the old ready state
+        return (
+          selectedPhoto && (
+            <>
+              <ReadyState
+                selectedPhoto={selectedPhoto}
+                selectedHairstyle={selectedHairstyle}
+                isAuthenticated={isAuthenticated}
+                onClearPhoto={handleClearPhoto}
+                userCredits={user?.credits || 0}
+                isPro={user?.isPro || false}
+              />
+              <StyleCarousel
+                hairstyles={hairstyles}
+                selectedId={selectedHairstyle?.id}
+                onSelect={handleHairstyleSelect}
+                isLoading={hairstylesLoading}
+              />
+              {/* Bottom padding for action bar */}
+              <div className="h-24" />
             </>
           )
         );
     }
   };
 
-  return ( studioState === 'home' && !Capacitor.isNativePlatform()  ?<HomePage  />:
-    <div className="h-screen bg-[#f9f7f596] flex flex-col overflow-hidden">
+  const showBottomNavigation = isMobileShellEnabled && !showOnboarding && studioState !== 'processing' && studioState !== 'results';
+  const showTryOnSurface = !isMobileShellEnabled || activeShellTab === 'try-on';
+  const isDiscoverState = studioState === 'discover';
+  const isConfirmScreen = studioState === 'ready' && !!selectedPhoto && !!selectedHairstyle;
+
+  const renderMainSurface = () => {
+    if (showTryOnSurface) {
+      return renderStudioState();
+    }
+
+    if (activeShellTab === 'looks') {
+      return (
+        <SavedLooksPage
+          embedded
+          onShowAuth={() => setShowAuthModal(true)}
+          onStartTryOn={() => handleShellNavigate('try-on')}
+        />
+      );
+    }
+
+    return (
+      <MobileProfileHub
+        user={user}
+        isAuthenticated={isAuthenticated}
+        onOpenPaywall={() => setShowPricing(true)}
+        onOpenRewards={() => setShowRewardsCenter(true)}
+        onShowHelp={showHelp}
+        onShowAuth={() => setShowAuthModal(true)}
+        onSignOut={() => void handleSignOutWithHaptic()}
+        onNavigateToStudio={() => handleShellNavigate('try-on')}
+        refreshUser={refreshUser}
+      />
+    );
+  };
+
+  return (
+    <div id="main-content" className="min-h-[100dvh] h-[100dvh] bg-[#f9f7f4] flex flex-col overflow-hidden">
       <OnboardingGuide
-        isOpen={showOnboarding && Capacitor.isNativePlatform()   }
-        onClose={handleCloseOnboarding}
+        isOpen={showOnboarding}
+        onClose={() => handleCloseOnboarding(false)}
+        onComplete={handleCloseOnboarding}
       />
 
       {Capacitor.isNativePlatform() && !showOnboarding ? (
@@ -176,15 +295,25 @@ handleUploadHairstyle,
           user={user}
           isAuthenticated={isAuthenticated}
           setShowPricing={setShowPricing}
+          setShowRewardsCenter={setShowRewardsCenter}
           handleSignOutWithHaptic={handleSignOutWithHaptic}
           handleDeleteAccount={handleDeleteAccount}
+          onNavigate={handleShellNavigate}
+          onShowHelp={showHelp}
+          onShowAuth={() => setShowAuthModal(true)}
+          isMobileShellEnabled={isMobileShellEnabled}
         />
       ): <AppHeader
           user={user}
           isAuthenticated={isAuthenticated}
           setShowPricing={setShowPricing}
+          setShowRewardsCenter={setShowRewardsCenter}
           handleSignOutWithHaptic={handleSignOutWithHaptic}
           handleDeleteAccount={handleDeleteAccount}
+          onNavigate={handleShellNavigate}
+          onShowHelp={showHelp}
+          onShowAuth={() => setShowAuthModal(true)}
+          isMobileShellEnabled={isMobileShellEnabled}
         /> }
 
     
@@ -192,38 +321,50 @@ handleUploadHairstyle,
 <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onSuccess={f=>f}
+  onSuccess={() => setShowAuthModal(false)}
         title="Sign in to Continue"
         description="Sign in to choose any hairstyles"
         showProBenefits={false}
       />
 
+      {/* Auth modal for locked style taps — credits variant for first-timers, default for returning */}
+      <AuthModal
+        isOpen={!!lockedStyleTap}
+        onClose={() => setLockedStyleTap(null)}
+        onSuccess={() => setLockedStyleTap(null)}
+        variant={localStorage.getItem('has_signed_in') ? 'default' : 'credits'}
+        title={localStorage.getItem('has_signed_in') ? 'Sign in to unlock' : undefined}
+        description={localStorage.getItem('has_signed_in') ? `Sign in to try ${lockedStyleTap?.name || 'this style'}` : undefined}
+        hairstyleThumbnail={lockedStyleTap?.thumbnail}
+        hairstyleName={lockedStyleTap?.name}
+      />
+
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-y-auto lg:overflow-y-hidden">
-          <div className={`flex-1 overflow-y-auto ${studioState === 'upload' ? 'px-3' : ''} `}>
-            <div className={`flex-1 flex items-start justify-center ${studioState !== 'results' && 'p-1'} sm:p-8 lg:items-center pb-24 lg:pb-4`}>
-              <div className="w-full max-w-2xl">
-                {renderStudioState()}
-                
-                {(studioState === 'upload' ) && (
-                   <div className="w-full my-4 left-0 p-2 ">
-                     <p className="text-center text-xs sm:w-4/5 text-gray-500">
-                       Hair Studio can make mistakes, and the output image might not always match the selected hairstyle.
-                     </p>
-                   </div>
-                )}
+        {/* Main Content - Single scroll container on mobile */}
+        <main className="flex-1 flex flex-col overflow-hidden overscroll-contain">
+          {isDiscoverState && showTryOnSurface ? (
+            /* Discover state: full-bleed style browsing */
+            <div className={`flex-1 overflow-hidden ${showBottomNavigation ? 'pb-[var(--mobile-tabbar-height)]' : ''}`}>
+              {renderMainSurface()}
+            </div>
+          ) : (
+            /* Other states: centered content */
+            <div className={`flex-1 ${studioState === 'upload' ? 'px-3' : ''} overflow-y-auto lg:overflow-y-auto`}>
+              <div className={`flex items-start justify-center ${studioState !== 'results' && 'p-1'} sm:p-8 lg:items-center ${showBottomNavigation && showTryOnSurface ? 'pb-[calc(var(--bottom-total)+var(--mobile-tabbar-height))]' : showBottomNavigation ? 'pb-[var(--mobile-tabbar-height)]' : 'pb-[var(--bottom-total)]'} lg:pb-4 min-h-full`}>
+                <div className="w-full max-w-2xl">
+                  {renderMainSurface()}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </main>
 
         {/* Desktop Sidebar - Hairstyle Gallery */}
-        <div className="hidden lg:block">
+        <div className={`hidden lg:block ${showTryOnSurface ? '' : 'lg:hidden'}`}>
           {hairstylesLoading ? (
-            <div className="w-70 bg-white border-l border-gray-200 flex items-center justify-center">
-              <Loader2 className="animate-spin h-8 w-8 text-amber-600" />
+            <div className="w-70 bg-white border-l border-gray-200">
+              <HairstyleGridSkeleton count={9} columns={3} />
             </div>
           ) : (
             <AfricanHairstyleGrid
@@ -231,7 +372,7 @@ handleUploadHairstyle,
               selectedHairstyle={selectedHairstyle}
               userCredits={user?.credits || 0}
               hairstyles={hairstyles}
-              handleGenerateStyle={handleGenerateStyle}
+              handleGenerateStyle={handleRequestGenerate}
               setShowPricing={setShowPricing}
               handleUploadHairstyle={handleUploadHairstyle}
             />
@@ -239,23 +380,31 @@ handleUploadHairstyle,
         </div>
       </div>
 
-      {/* Mobile Action Bar */}
-      <MobileActionBar
-        studioState={studioState}
-        selectedHairstyle={selectedHairstyle}
-        isGenerating={isGenerating}
-        downloadLoading={downloadLoading}
-        onDownload={handleDownload}
-        onTryAnother={handleTryAnother}
-        onGenerate={handleGenerateStyle}
-        isAuthenticated={isAuthenticated}
-        onShowGallery={() => setShowMobileGallery(true)}
-        handleUploadHairstyle={handleUploadHairstyle}
-    generateCustomHairstyle={generateCustomHairstyle}
-    customThumbnailPath={customThumbnailPath}
-    customImageFile={customImageFile}
-    handleClearCustom={handleClearCustom}
-      />
+      {/* Mobile Action Bar - hidden during discover (has its own CTA) and confirm screen (has its own Generate) */}
+      {showTryOnSurface && !isDiscoverState && !isConfirmScreen && (
+        <MobileActionBar
+          studioState={studioState}
+          selectedHairstyle={selectedHairstyle}
+          isGenerating={isGenerating}
+          downloadLoading={downloadLoading}
+          onDownload={handleDownload}
+          onTryAnother={handleTryAnother}
+          onGenerate={handleRequestGenerate}
+          isAuthenticated={isAuthenticated}
+          canGoBack={canGoBack}
+          onBack={handleBack}
+          onShowGallery={() => setShowMobileGallery(true)}
+          handleUploadHairstyle={handleUploadHairstyle}
+          generateCustomHairstyle={generateCustomHairstyle}
+          customThumbnailPath={customThumbnailPath}
+          customImageFile={customImageFile}
+          handleClearCustom={handleClearCustom}
+        />
+      )}
+
+      {showBottomNavigation && (
+        <MobileBottomNavigation activeTab={activeShellTab} onNavigate={handleShellNavigate} />
+      )}
 
       {/* Modals */}
       <MobileHairstyleModal
@@ -278,10 +427,69 @@ handleUploadHairstyle,
       <PricingModal
         isOpen={showPricing}
         onClose={() => setShowPricing(false)}
-        onPurchase={handlePurchase}
-        currentCredits={user?.credits || 0}
-        requireAuth={!isAuthenticated}
+        onOpenRewards={() => setShowRewardsCenter(true)}
       />
+
+      <RewardsCenterModal
+        isOpen={showRewardsCenter}
+        onClose={() => setShowRewardsCenter(false)}
+        onOpenPaywall={() => setShowPricing(true)}
+      />
+
+      <RateAppModal
+        isOpen={showRateApp}
+        onClose={() => setShowRateApp(false)}
+      />
+
+      {/* Pre-generation cost visibility sheet */}
+      {showPreGenerationSheet && selectedHairstyle && (
+        <PreGenerationSheet
+          hairstyleName={selectedHairstyle.name || 'Selected Style'}
+          hairstyleId={selectedHairstyle._id || selectedHairstyle.id}
+          creditCost={selectedHairstyle.price || 1}
+          userCredits={user?.credits || 0}
+          isPro={!!user?.subscription?.status && user.subscription.status === 'active'}
+          isAuthenticated={isAuthenticated}
+          onConfirm={handleGenerateStyle}
+          onCancel={handleDismissPreGeneration}
+          onBuyCredits={() => {
+            handleDismissPreGeneration();
+            setShowPricing(true);
+          }}
+        />
+      )}
+
+      {/* Custom style upload source picker */}
+      <CustomStyleSheet
+        isOpen={showCustomStyleSheet}
+        onClose={() => setShowCustomStyleSheet(false)}
+        onCamera={() => handleCustomStylePick('camera')}
+        onGallery={() => handleCustomStylePick('gallery')}
+      />
+
+      {/* Web camera capture for custom style photos */}
+      <CameraCaptureOverlay
+        isOpen={showCameraCapture}
+        onClose={() => setShowCameraCapture(false)}
+        onCapture={handleCameraCapture}
+      />
+
+      {/* Style Detail Sheet — shown when tapping a style from discover */}
+      {styleDetailTarget && (
+        <StyleDetailSheet
+          hairstyle={styleDetailTarget}
+          onTryStyle={(hairstyle) => {
+            setStyleDetailTarget(null);
+            handleStyleFirstSelect(hairstyle);
+          }}
+          onClose={() => setStyleDetailTarget(null)}
+          userCredits={user?.credits || 0}
+          onBuyCredits={() => {
+            setStyleDetailTarget(null);
+            setShowPricing(true);
+          }}
+        />
+      )}
     </div>
   );
 }

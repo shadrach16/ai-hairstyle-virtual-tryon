@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 // 1. Import HelmetProvider
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/sonner';
@@ -18,6 +18,7 @@ import AuthCallback from '@/components/AuthCallback';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
 import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app';
+import AppLoader from '@/components/AppLoader';
 
 
 const queryClient = new QueryClient();
@@ -31,8 +32,8 @@ const setStatusBarAppearance = async () => {
  }
  try {
   await StatusBar.show();
-  await StatusBar.setBackgroundColor({ color: '#d97706' });
-  await StatusBar.setStyle({ style: Style.Dark });
+  await StatusBar.setBackgroundColor({ color: '#ffffff' });
+  await StatusBar.setStyle({ style: Style.Light });
   await StatusBar.setOverlaysWebView({ overlay: false });
   console.log('[App Init] Status Bar appearance set.');
  } catch (e) {
@@ -254,14 +255,18 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+ const [showLoader, setShowLoader] = useState(true);
+ const handleLoaderFinish = useCallback(() => setShowLoader(false), []);
+
  return (
   <AuthProvider>
    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
      <Toaster position="top-center" richColors expand={true} closeButton />
+     {showLoader && <AppLoader onFinish={handleLoaderFinish} />}
      {/* 5. Wrap the entire app with HelmetProvider */}
      <HelmetProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
        <AppRoutes />
       </BrowserRouter>
      </HelmetProvider>

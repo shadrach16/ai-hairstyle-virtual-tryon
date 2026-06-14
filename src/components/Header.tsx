@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Sparkles, BarChart3, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { Crown, BarChart3, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import GoogleSignInButton from './GoogleSignInButton';
 import { useAuth } from '@/hooks/useAuth';

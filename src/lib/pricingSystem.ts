@@ -1,86 +1,105 @@
+export interface StorefrontPrice {
+  amount: number;
+  currency: string;
+  formatted: string;
+}
+
+export interface RevenueCatStorefront {
+  productId: string;
+}
+
+export interface DodoStorefront {
+  productId: string;
+  checkoutBaseUrl: string;
+  price: StorefrontPrice;
+}
+
 export interface CreditPack {
   id: string;
+  type: 'credit_pack';
   name: string;
+  description: string;
   credits: number;
-  priceNGN: number;
-  priceUSD: number;
+  displayLabel: string;
+  displayOrder: number;
   popular?: boolean;
   savings?: string;
+  storefronts: {
+    revenueCat?: RevenueCatStorefront;
+    dodo?: DodoStorefront;
+  };
 }
 
 export interface SubscriptionPlan {
   id: string;
+  type: 'subscription';
   name: string;
-  credits: number;
-  priceNGN: number;
-  priceUSD: number;
-  features?: string[];
+  description: string;
+  creditsPerMonth?: number;
+  interval?: 'month' | 'year';
+  displayOrder: number;
   popular?: boolean;
+  recommended?: boolean;
   savings?: string;
+  displayLabel?: string;
+  trialDays?: number;
+  features?: string[];
+  storefronts: {
+    revenueCat?: RevenueCatStorefront;
+    dodo?: DodoStorefront;
+  };
 }
 
-export const CREDIT_PACKS: CreditPack[] = [
-  {
-    id: 'starter',
-    name: 'Starter Pack',
-    credits: 25,
-    priceNGN: 2990,
-    priceUSD: 2,
-    savings: 'Save 25%'
-  },
-  {
-    id: 'value',
-    name: 'Value Pack',
-    credits: 100,
-    priceNGN: 9990,
-    priceUSD: 7,
-    popular: true,
-    savings: 'Save 38%'
-  },
-  {
-    id: 'stylist',
-    name: 'Stylist Pack',
-    credits: 250,
-    priceNGN: 19990,
-    priceUSD: 13,
-    savings: 'Save 50%'
-  }
-];
+export interface PricingCatalog {
+  version: string;
+  paymentMethods: {
+    mobile: string;
+    web: string;
+  };
+  creditPacks: CreditPack[];
+  subscriptions: SubscriptionPlan[];
+  validation: {
+    isValid: boolean;
+    errorCount: number;
+    warningCount: number;
+    errors: string[];
+    warnings: string[];
+  };
+}
 
-export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: 'pro',
-    name: 'Pro Stylist',
-    credits: 150,
-    priceNGN: 7990,
-    priceUSD: 5,
-    features: [
-      '150 credits per month',
-      'Priority processing',
-      'HD quality exports',
-      'No watermarks',
-      'Style history',
-      'Email support'
-    ],
-    popular: true,
-    savings: 'Best Value'
-  },
-  {
-    id: 'salon',
-    name: 'Salon Professional',
-    credits: 500,
-    priceNGN: 19990,
-    priceUSD: 13,
-    features: [
-      '500 credits per month',
-      'API access',
-      'Bulk processing',
-      'Commercial license',
-      'Custom branding',
-      'Priority support',
-      '4K quality exports',
-      'Advanced analytics'
-    ],
-    savings: 'For Business'
+export interface UserCredits {
+  total: number;
+  used: number;
+  remaining: number;
+  freeTrialUsed: number;
+  freeTrialExpiry?: string | null;
+}
+
+export function calculateTrialExpiry(durationHours: number = 48): string {
+  return new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+}
+
+export function isTrialActive(expiry?: string | null): boolean {
+  if (!expiry) {
+    return false;
   }
-];
+
+  return new Date(expiry).getTime() > Date.now();
+}
+
+export const EMPTY_PRICING_CATALOG: PricingCatalog = {
+  version: 'unavailable',
+  paymentMethods: {
+    mobile: 'RevenueCat (Google Play / App Store)',
+    web: 'Dodo Payments'
+  },
+  creditPacks: [],
+  subscriptions: [],
+  validation: {
+    isValid: false,
+    errorCount: 0,
+    warningCount: 0,
+    errors: [],
+    warnings: []
+  }
+};

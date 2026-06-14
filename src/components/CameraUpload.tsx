@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { apiService } from '@/lib/api';
 import {
   Camera,
   Upload,
@@ -15,7 +16,11 @@ import {
   Image as ImageIcon, // Kept for consistency
   ChevronRight,
   ArrowLeft,
+  Flame,
+  Coins,
 } from 'lucide-react';
+import type { StyleRecommendation } from '@/lib/api';
+import { motion } from 'framer-motion';
 import Webcam from 'react-webcam';
 import { useNavigate } from 'react-router-dom';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -30,6 +35,9 @@ interface CameraUploadProps {
   onPhotoSelect: (file: File, mimeType: string) => void;
   onClearPhoto: () => void;
   selectedPhoto: File | null;
+  selectedHairstyle?: any;
+  onStyleSelect?: (hairstyle: any) => void;
+  onBack?: () => void;
 }
 
 // --- HELPER FUNCTIONS ---
@@ -56,6 +64,9 @@ export default function CameraUpload({
   onPhotoSelect,
   onClearPhoto,
   selectedPhoto,
+  selectedHairstyle,
+  onStyleSelect,
+  onBack,
 }: CameraUploadProps) {
   // 💡 Mode 'upload' is no longer used for UI
   const [mode, setMode] = useState<'choice' | 'camera'>('choice');
@@ -71,6 +82,7 @@ export default function CameraUpload({
 
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [trendingStyles, setTrendingStyles] = useState<StyleRecommendation[]>([]);
 
   // Determine the environment once
   const isNative = Capacitor.isNativePlatform();
@@ -79,6 +91,16 @@ export default function CameraUpload({
     localStorage.setItem('studio_status', 'landing');
   }, []);
 
+  // Fetch trending styles for inspiration section
+  useEffect(() => {
+    if (selectedHairstyle) return; // Skip if style already chosen
+    let cancelled = false;
+    apiService.getTrendingStyles({ limit: 6 }).then(res => {
+      if (!cancelled && res.success) setTrendingStyles(res.data);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedHairstyle]);
+
   // --- CORE LOGIC FUNCTIONS ---
 
   const simulateUpload = useCallback(
@@ -86,12 +108,20 @@ export default function CameraUpload({
       setIsUploading(true);
       setUploadProgress(0);
 
+      // Track photo upload event
+      apiService.trackEvent('photo_uploaded', {
+        source: mode === 'camera' ? 'camera' : 'gallery',
+        mimeType,
+        fileSize: file.size
+      });
+
       const interval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 100) {
             clearInterval(interval);
             setIsUploading(false);
-            onPhotoSelect(file, mimeType); // This will trigger the 'selectedPhoto' prop
+            // Defer parent callback out of setState updater to avoid "setState during render" warning
+            setTimeout(() => onPhotoSelect(file, mimeType), 0);
             return 100;
           }
           return prev + Math.random() * 4; // Simulated progress
@@ -277,56 +307,82 @@ export default function CameraUpload({
   // 1. SUCCESS SCREEN (Photo is selected and processed)
   if (selectedPhoto) {
     return (
-      <Card className="w-full max-w-lg mx-auto shadow-2xl shadow-amber-100 overflow-hidden border-2 border-amber-200">
-        <CardContent className="p-6 sm:p-8 text-center">
-          <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">
-            Photo Ready!
-          </h2>
-          <p className="text-sm sm:text-base text-slate-600 mb-6">
-            Your photo is uploaded and ready for the transformation.
-          </p>
-          <div className="relative group w-40 h-40 sm:w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-white shadow-lg">
-            <img
-              src={URL.createObjectURL(selectedPhoto)}
-              alt="Selected"
-              className="w-full h-full object-cover"
-            />
+      <div className="w-full max-w-md mx-auto flex flex-col items-center px-4 py-8">
+        {/* Photo + style side-by-side if style selected */}
+        {selectedHairstyle ? (
+          <div className="flex items-center gap-3 mb-6">
+            <div className="relative">
+              <div className="w-[88px] h-[88px] rounded-2xl overflow-hidden ring-1 ring-black/[0.06] shadow-sm">
+                <img src={URL.createObjectURL(selectedPhoto)} alt="Your photo" className="w-full h-full object-cover" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#1a1a1a] flex items-center justify-center ring-2 ring-white">
+                <Check className="w-2.5 h-2.5 text-white" />
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-200 flex-shrink-0" />
+            <div className="w-[88px] h-[88px] rounded-2xl overflow-hidden ring-1 ring-black/[0.06] shadow-sm">
+              <img src={selectedHairstyle.thumbnail} alt={selectedHairstyle.name} className="w-full h-full object-cover" />
+            </div>
           </div>
-          <div className="flex flex-col space-y-3 sm:space-y-2">
-            <Button
-              onClick={resetState} // This now goes back to 'choice'
-              variant="outline"
-              className="mt-8 w-full h-12 text-base"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Choose a Different Photo
-            </Button>
-            <Button
-              onClick={() => {
-                navigate('/?studio_status=ready');
-              }}
-              className="w-full bg-amber-600 text-white h-12 text-base hover:bg-amber-700" // Styled to match theme
-            >
-              Continue to Gallery
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
+        ) : (
+          <div className="relative mb-6">
+            <div className="w-28 h-28 rounded-2xl overflow-hidden ring-1 ring-black/[0.06] shadow-sm">
+              <img src={URL.createObjectURL(selectedPhoto)} alt="Your photo" className="w-full h-full object-cover" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#1a1a1a] flex items-center justify-center ring-2 ring-white">
+              <Check className="w-3 h-3 text-white" />
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        <h2 className="text-[18px] font-bold text-gray-900 tracking-tight text-center">
+          {selectedHairstyle ? 'Ready to generate' : 'Photo uploaded'}
+        </h2>
+        <p className="text-[13px] text-gray-400 mt-1 mb-6 text-center">
+          {selectedHairstyle
+            ? `Your photo + ${selectedHairstyle.name}`
+            : 'Now choose a hairstyle to try'
+          }
+        </p>
+
+        <div className="w-full space-y-2.5">
+          <button
+            onClick={() => navigate('/?studio_status=ready')}
+            className="w-full h-12 bg-[#1a1a1a] text-white rounded-2xl text-[14px] font-semibold shadow-lg shadow-gray-900/10 flex items-center justify-center gap-1.5 active:scale-[0.97] transition-transform"
+          >
+            {selectedHairstyle ? 'Continue' : 'Browse Styles'}
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={resetState}
+            className="w-full py-2.5 text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Choose different photo
+          </button>
+        </div>
+      </div>
     );
   }
 
   // 2. UPLOADING/PROCESSING STATE
   if (isUploading) {
     return (
-      <div className="w-full max-w-lg mx-auto p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[60vh] sm:min-h-[50vh]">
-        <Loader2 className="w-8 h-8 text-amber-600 animate-spin mb-4" />
-        <h3 className="text-xl font-semibold text-slate-800 mb-2">
-          Uploading...
+      <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center px-4 py-20">
+        <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mb-5">
+          <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+        </div>
+        <h3 className="text-base font-semibold text-gray-800 tracking-tight">
+          Preparing your photo
         </h3>
-        <Progress value={uploadProgress} className="w-3/4 max-w-xs" />
-        <p className="text-sm text-slate-500 mt-2">
+        <div className="w-full max-w-[180px] mt-4">
+          <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gray-900 transition-all duration-150 ease-out"
+              style={{ width: `${Math.min(uploadProgress, 100)}%` }}
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-300 mt-2">
           {Math.round(uploadProgress)}%
         </p>
       </div>
@@ -336,185 +392,287 @@ export default function CameraUpload({
   // 3. PREVIEW STATE (Photo taken/selected, awaiting confirmation)
   if (imageSrc) {
     return (
-      <Card className="w-full max-w-lg mx-auto rounded-none sm:rounded-2xl shadow-2xl shadow-amber-100 overflow-hidden border-amber-200">
-        <CardContent className="p-0">
-          <div className="relative aspect-square w-full">
-            <img
-              src={imageSrc}
-              alt="Preview"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-x-0 bottom-4 sm:bottom-6 p-4 flex flex-col items-center justify-end gap-3 sm:gap-4">
+      <div className="w-full max-w-md mx-auto overflow-hidden rounded-3xl shadow-lg">
+        <div className="relative aspect-[3/4] w-full">
+          <img
+            src={imageSrc}
+            alt="Preview"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-5 pt-16">
+            <div className="space-y-2.5">
               <Button
                 onClick={() =>
-                  // 💡 This logic is simplified: 'camera' mode means it came from webcam.
-                  // Anything else ('choice' mode) must have come from a file upload.
                   mode === 'camera' ? confirmCapture() : confirmUpload()
                 }
                 size="lg"
-                className="w-full bg-amber-600 hover:bg-amber-700 h-14 text-base" // Styled to match theme
+                className="w-full h-12 bg-white text-gray-900 hover:bg-gray-50 rounded-2xl text-[15px] font-semibold shadow-lg"
               >
-                <Check className="w-5 h-5 mr-2" /> Use this Photo
+                <Check className="w-4.5 h-4.5 mr-2" /> Use this photo
               </Button>
               <Button
-                onClick={clearPreview} // Returns to camera/upload
+                onClick={clearPreview}
                 size="lg"
-                variant="secondary"
-                className="w-full bg-white/90 hover:bg-white h-14 text-base"
+                variant="ghost"
+                className="w-full h-11 text-white/90 hover:text-white hover:bg-white/10 rounded-2xl text-sm"
               >
-                <X className="w-5 h-5 mr-2" /> Try Again
+                <X className="w-4 h-4 mr-2" /> Retake
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
-  // 4. INITIAL CHOICE SCREEN (The new design)
+  // 4. INITIAL CHOICE SCREEN
   if (mode === 'choice') {
     return (
-      <div className="w-full max-w-lg mx-auto py-4 px-1 ">
-        {/* 💡 ADDED: The hidden file input is now rendered here */}
+      <div className="w-full  mx-auto flex flex-col items-center ">
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
           onChange={handleFileSelect}
           className="hidden"
+          aria-label="Upload a photo"
         />
 
-        <h1 className="sm:text-3xl text-2xl font-serif font-bold text-slate-900 mb-2">
-          Choose an image
-        </h1>
-        <p className=" text-md sm:text-lg text-base text-slate-600 mb-8">
-          Take a selfie or upload a picture of yourself
-        </p>
-        <div className="grid grid-cols-2 gap-2 sm:gap-6">
-          {/* Library Button Card */}
-        <button
-    onClick={handleUploadClick}
-    className=" lg:border-2 lg:border-amber-500 lg:border-dashed mr-1 flex flex-col items-center space-y-5 justify-center pt-6 sm:p-10 min-h-[20vh] aspect-square rounded-2xl 
-    bg-amber-50 text-amber-800 hover:bg-amber-100
-    transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-    
-    style={{
-       
-        backgroundImage: "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23fcd34d' stroke-width='2' stroke-dasharray='12 7'/%3e%3c/svg%3e\")",
-        '--hover-svg': "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23fbbf24' stroke-width='2' stroke-dasharray='12 7'/%3e%3c/svg%3e\")"
-    }}
-    onMouseOver={e => e.currentTarget.style.backgroundImage = e.currentTarget.style.getPropertyValue('--hover-svg')}
-    onMouseOut={e => e.currentTarget.style.backgroundImage = ''}
->
-    <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 mb-3" />
-    <span className="text-md font-semibold">Library</span>
-</button>
-          {/* Camera Button Card */}
+        {/* Back button */}
+        {onBack && (
+          <div className="w-full flex items-center mb-1">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1 px-4 py-1.5 -ml-1 rounded-xl text-gray-400 active:text-gray-600 active:scale-95 transition-all"
+            >
+              <ArrowLeft className="w-4.5 h-4.5" />
+              <span className="text-[13px] font-medium">Discover</span>
+            </button>
+          </div>
+        )}
+
+        {/* Header */}
+        {selectedHairstyle ? (
+          <div className="flex flex-col items-center mb-7 mt-4">
+            <div className="w-[82px] h-[82px] rounded-2xl overflow-hidden ring-1 ring-black/[0.06] shadow-sm mb-4">
+              <img
+                src={selectedHairstyle.thumbnail}
+                alt={selectedHairstyle.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <h1 className="text-[20px] font-bold text-gray-900 text-center tracking-tight">
+              Add your photo
+            </h1>
+            <p className="text-[13px] text-gray-400 mt-1.5 text-center">
+              To try <span className="font-medium text-gray-600">{selectedHairstyle.name}</span>
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center mb-7 mt-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4">
+              <Camera className="w-7 h-7 text-gray-300" />
+            </div>
+            <h1 className="text-[20px] font-bold text-gray-900 text-center tracking-tight">
+              Add your photo
+            </h1>
+            <p className="text-[13px] text-gray-400 mt-1.5 text-center max-w-[240px]">
+              Upload a photo to try on hairstyles
+            </p>
+          </div>
+        )}
+
+        {/* Action rows */}
+        <div className="w-full rounded-2xl bg-white ring-1 ring-black/[0.04] shadow-sm overflow-hidden">
+          <button
+            onClick={handleUploadClick}
+            className="w-full flex items-center gap-3.5 px-4 py-4 transition-colors active:bg-gray-50/60 group"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 flex-shrink-0">
+              <ImageIcon className="w-[18px] h-[18px] text-gray-400" />
+            </span>
+            <div className="flex-1 text-left">
+              <p className="text-[14px] font-medium text-gray-800">Photo Library</p>
+              <p className="text-[11px] text-gray-400">Choose from gallery</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300" />
+          </button>
+
+          <div className="h-px bg-gray-100 mx-4" />
+
           <button
             onClick={handleCameraClick}
-            className="lg:border-2 lg:border-amber-500 lg:border-dashed flex flex-col items-center space-y-5 justify-center pt-6 sm:p-10 min-h-[20vh] aspect-square rounded-2xl  border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-            
-    style={{
-       
-        backgroundImage: "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23fcd34d' stroke-width='2' stroke-dasharray='12 7'/%3e%3c/svg%3e\")",
-        '--hover-svg': "url(\"data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23fbbf24' stroke-width='2' stroke-dasharray='12 7'/%3e%3c/svg%3e\")"
-    }}
-    onMouseOver={e => e.currentTarget.style.backgroundImage = e.currentTarget.style.getPropertyValue('--hover-svg')}
-    onMouseOut={e => e.currentTarget.style.backgroundImage = ''}
-
+            className="w-full flex items-center gap-3.5 px-4 py-4 transition-colors active:bg-gray-50/60 group"
           >
-            <Camera className="w-10 h-10 sm:w-12 sm:h-12 mb-3" />
-            <span className="text-md font-semibold">Camera</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 flex-shrink-0">
+              <Camera className="w-[18px] h-[18px] text-gray-400" />
+            </span>
+            <div className="flex-1 text-left">
+              <p className="text-[14px] font-medium text-gray-800">Take a Selfie</p>
+              <p className="text-[11px] text-gray-400">Use front camera</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300" />
           </button>
         </div>
+
+        {/* Disclaimer */}
+        <p className="text-[11px] text-gray-300 mt-4 text-center">
+          Results may vary. AI-generated images are approximations.
+        </p>
+
+        {/* Trending styles — matches Discover page carousel design */}
+        {!selectedHairstyle && trendingStyles.length > 0 && (
+          <div className="w-full mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[15px] font-bold text-gray-900 flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-orange-500" />
+                Trending Now
+              </h3>
+              <button
+                onClick={() => navigate('/?studio_status=discover')}
+                className="text-[12px] font-semibold text-gray-500 hover:text-gray-900 flex items-center gap-0.5 transition-colors"
+              >
+                See all
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden scrollbar-none -mx-4">
+              <div className="flex gap-2.5 px-4" style={{ width: 'max-content' }}>
+                {trendingStyles.map((style, i) => (
+                  <motion.button
+                    key={style._id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: i * 0.04 }}
+                    onClick={() => onStyleSelect?.(style)}
+                    className="flex-shrink-0 w-[108px] group text-left"
+                    aria-label={`Try ${style.name}`}
+                  >
+                    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 shadow-sm shadow-gray-200/50">
+                      <img
+                        src={style.thumbnail}
+                        alt={style.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+
+                      {/* Price chip */}
+                      <div className="absolute top-2 right-2 flex items-center gap-0.5 px-4.5 py-0.5 bg-black/35 backdrop-blur-sm rounded-full">
+                        <Coins className="w-2.5 h-2.5 text-amber-300" />
+                        <span className="text-[9px] font-bold text-white">{style.price}</span>
+                      </div>
+
+                      {/* Name at bottom */}
+                      <div className="absolute bottom-0 inset-x-0 p-2">
+                        <p className="text-[11px] font-semibold text-white leading-tight line-clamp-1">
+                          {style.name}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // 5. CAMERA VIEW (Web Only)
-  // 💡 This block now ONLY handles mode === 'camera'
+  // 5. CAMERA VIEW (Web Only) — Full-screen immersive
   return (
-    <Card className="w-full max-w-lg mx-auto rounded-none sm:rounded-2xl shadow-amber-100 overflow-hidden">
-      <CardContent className="px-4 sm:p-6 bg-white   min-h-[60vh] sm:min-h-[50vh]">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 text-slate-600 hover:text-slate-900"
+    <div className="fixed inset-0 z-[60] flex flex-col bg-black">
+      {/* ── Top bar ──────────────────────────────────── */}
+      <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),16px)] pb-3">
+        <button
           onClick={() => {
             setMode('choice');
             setCameraError(null);
           }}
+          className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+          aria-label="Back"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to choices
-        </Button>
+          <X className="w-5 h-5 text-white" />
+        </button>
+        <p className="text-sm font-semibold text-white/90 drop-shadow-sm">Take a Selfie</p>
+        <div className="w-10 h-10" />
+      </div>
 
-        {/* The main content area */}
-        <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
-          {/* RENDER CAMERA VIEW (Web only) */}
-          <>
-            {!isNative ? (
-              // WebCamera view
-              <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/jpeg"
-                videoConstraints={{ facingMode }}
-                onUserMediaError={() =>
-                  setCameraError(
-                    'Camera access denied. Please enable permissions in your browser settings.',
-                  )
-                }
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              // Mobile Capacitor Placeholder (Camera opens instantly)
-              <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-200">
-                <Camera className="w-16 h-16 text-slate-500 mb-3" />
-                <p className="text-slate-600 font-medium">Opening Camera...</p>
-                <p className="text-sm text-slate-500 mt-1">
-                  Accept permissions to continue.
-                </p>
-              </div>
-            )}
-            {/* Face Outline */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-3/4 h-5/6 border-2 border-white/50 border-dashed rounded-lg" />
-            </div>
-            {/* Web-only camera controls */}
-            {!isNative && (
-              <div className="absolute inset-x-0 bottom-4 sm:bottom-6 flex justify-center items-center gap-6 sm:gap-4">
-                <Button
-                  onClick={switchCamera}
-                  variant="secondary"
-                  size="icon"
-                  className="w-14 h-14 rounded-full bg-white/80 backdrop-blur-sm shadow-md"
-                >
-                  <RotateCcw className="w-6 h-6" />
-                </Button>
-                <Button
-                  onClick={capturePhoto}
-                  className="w-20 h-20 rounded-full bg-amber-600 p-0 shadow-xl border-4 border-white hover:bg-amber-700" // Styled
-                >
-                  <div className="w-16 h-16 rounded-full bg-white/80" />
-                </Button>
-                <div className="w-14 h-14" /> {/* Spacer */}
-              </div>
-            )}
-          </>
-
-          {/* 💡 REMOVED: The 'mode === "upload"' block is no longer needed */}
-          
-        </div>
-
-        {cameraError && (
-          <Alert variant="destructive" className="mt-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{cameraError}</AlertDescription>
-          </Alert>
+      {/* ── Camera feed ─────────────────────────────── */}
+      <div className="flex-1 relative overflow-hidden">
+        {cameraError ? (
+          <div className="flex flex-col items-center justify-center h-full px-8 text-center">
+            <Camera className="w-12 h-12 text-white/30 mb-4" />
+            <p className="text-sm text-white/70 leading-relaxed">{cameraError}</p>
+            <button
+              onClick={() => {
+                setMode('choice');
+                setCameraError(null);
+              }}
+              className="mt-6 px-6 py-2.5 rounded-full bg-white/10 text-white text-sm font-semibold active:scale-95 transition-transform"
+            >
+              Go Back
+            </button>
+          </div>
+        ) : !isNative ? (
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{ facingMode }}
+            onUserMediaError={() =>
+              setCameraError(
+                'Camera access denied. Please enable permissions in your browser settings.',
+              )
+            }
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center">
+            <Camera className="w-12 h-12 text-white/30 mb-3" />
+            <p className="text-[14px] text-white/50 font-medium">Opening Camera...</p>
+          </div>
         )}
-      </CardContent>
-    </Card>
+
+        {/* Face guide overlay */}
+        {!cameraError && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-[55%] aspect-[3/4] rounded-[40%] border-[2px] border-white/20" />
+          </div>
+        )}
+      </div>
+
+      {/* ── Bottom controls ─────────────────────────── */}
+      {!cameraError && !isNative && (
+        <div className="absolute bottom-0 inset-x-0 z-10 flex flex-col items-center pb-[max(env(safe-area-inset-bottom),24px)] pt-5 bg-gradient-to-t from-black/60 to-transparent">
+          <div className="flex justify-center items-center gap-10 mb-4">
+            <button
+              onClick={switchCamera}
+              aria-label="Switch camera"
+              className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform"
+            >
+              <RotateCcw className="w-5 h-5" />
+            </button>
+            <button
+              onClick={capturePhoto}
+              aria-label="Take photo"
+              className="w-[72px] h-[72px] rounded-full border-[4px] border-white flex items-center justify-center active:scale-90 transition-transform"
+            >
+              <div className="w-[58px] h-[58px] rounded-full bg-white" />
+            </button>
+            <div className="w-12 h-12" />
+          </div>
+          {/* Tips */}
+          <div className="flex items-center gap-4">
+            <span className="text-[11px] text-white/40">Good lighting</span>
+            <span className="w-[3px] h-[3px] rounded-full bg-white/20" />
+            <span className="text-[11px] text-white/40">Face the camera</span>
+            <span className="w-[3px] h-[3px] rounded-full bg-white/20" />
+            <span className="text-[11px] text-white/40">Neutral expression</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -12,7 +12,7 @@ export interface UserSession {
   consecutiveLogins: number;
 }
 
-const STORAGE_KEY = 'african_hair_studio_session';
+const STORAGE_KEY = 'african_hair_studio_session1';
 
 export function getOrCreateSession(): UserSession {
   try {

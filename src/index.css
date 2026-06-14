@@ -4,6 +4,12 @@
 
 @layer base {
   :root {
+    /* ============================================
+       HAIR STUDIO DESIGN SYSTEM TOKENS
+       Mobile-First Design System
+    ============================================ */
+    
+    /* Core Colors */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -28,9 +34,52 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-      --safe-area-top: env(safe-area-inset-top);
-  --safe-area-bottom: env(safe-area-inset-bottom);
+    --radius: 0.75rem;
+    
+    /* Mobile Layout Contract */
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --header-height: 56px;
+    --bottom-bar-height: 68px;
+    --mobile-tabbar-height: 64px;
+    --header-total: calc(var(--header-height) + var(--safe-area-top));
+    --bottom-total: calc(var(--bottom-bar-height) + var(--safe-area-bottom));
+    --content-height: calc(100dvh - var(--header-total) - var(--bottom-total));
+    
+    /* Brand Colors (HSL) */
+    --brand-50: 48 100% 96%;
+    --brand-100: 48 96% 89%;
+    --brand-500: 38 92% 50%;
+    --brand-600: 32 95% 44%;
+    --brand-700: 26 90% 37%;
+    
+    /* Premium/Pro Colors (HSL) */
+    --premium-50: 270 100% 98%;
+    --premium-100: 269 100% 95%;
+    --premium-500: 271 91% 65%;
+    --premium-600: 271 81% 56%;
+    --premium-700: 263 70% 50%;
+    
+    /* Surface Colors */
+    --surface: 0 0% 100%;
+    --surface-raised: 0 0% 98%;
+    --surface-sunken: 240 5% 96%;
+    --surface-overlay: 0 0% 100% / 0.95;
+    
+    /* Text Hierarchy */
+    --text-primary: 222.2 84% 4.9%;
+    --text-secondary: 215.4 16.3% 46.9%;
+    --text-tertiary: 215.4 16.3% 60%;
+    --text-inverted: 0 0% 100%;
+    
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px -4px rgba(0, 0, 0, 0.08);
+    --shadow-modal: 0 24px 48px -12px rgba(0, 0, 0, 0.2);
+    
+    /* Touch Target Minimum */
+    --touch-target-min: 44px;
+    --touch-target-comfortable: 48px;
   }
 
   .dark {
@@ -104,6 +153,37 @@
   }
 }
 
+/* Slide out for bottom sheets */
+@keyframes slideOutBottom {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+/* Full sheet slide in from bottom */
+@keyframes sheetSlideIn {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheetSlideOut {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -133,22 +213,64 @@
 }
 
 .animate-slide-in-bottom {
-  animation: slideInBottom 0.5s ease-out forwards;
+  animation: slideInBottom 0.3s ease-out forwards;
+}
+
+.animate-slide-out-bottom {
+  animation: slideOutBottom 0.2s ease-in forwards;
+}
+
+.animate-sheet-in {
+  animation: sheetSlideIn 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.animate-sheet-out {
+  animation: sheetSlideOut 0.2s ease-in forwards;
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.3s ease-out forwards;
 }
 
 .animate-scale-in {
   animation: scaleIn 0.3s ease-out forwards;
 }
 
-/* Smooth transitions */
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+/* Smooth transitions — scoped to interactive elements only */
+button, a, input, select, textarea,
+[role="button"], [role="tab"], [role="switch"],
+.transition-colors, .transition-all, .transition-shadow {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* U3: Disable inline bottom-sheet animations */
+  .animate-slide-up {
+    animation: none !important;
+  }
+}
+
+/* U3: High contrast / forced-colors support */
+@media (forced-colors: active) {
+  button, [role="button"], [role="tab"], [role="option"] {
+    border: 1px solid ButtonText;
+  }
+  button:focus-visible, [role="button"]:focus-visible, [role="tab"]:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  .credit-pill, .badge-pro, .badge-free {
+    border: 1px solid ButtonText;
+  }
 }
 
 /* Custom scrollbar */
@@ -224,6 +346,19 @@
 
 
 
+
+/* Safe area utility classes - used throughout mobile components */
+.safe-p-t {
+  padding-top: var(--safe-area-top, 0px);
+}
+
+.safe-p-b {
+  padding-bottom: var(--safe-area-bottom, 0px);
+}
+
+.safe-m-b {
+  margin-bottom: var(--safe-area-bottom, 0px);
+}
 
 /* 1. Apply padding to your main header/content to push it below the status bar */
 .app-header {
@@ -440,4 +575,166 @@ h1.titleXLarge {
 /* Ensure the overlay is hidden/invisible unless triggered by user script */
 #overlay {
     opacity: 0 !important;
+}
+
+/* ============================================
+   HAIR STUDIO DESIGN SYSTEM - UTILITY CLASSES
+   ============================================ */
+
+@layer components {
+  /* Premium Surface Cards */
+  .surface-card {
+    @apply bg-white rounded-card shadow-card border border-gray-100/80;
+  }
+  
+  .surface-card-hover {
+    @apply surface-card hover:shadow-card-hover hover:border-gray-200/80 transition-all duration-200;
+  }
+  
+  /* Premium Buttons */
+  .btn-brand {
+    @apply bg-gradient-brand text-white font-semibold rounded-button shadow-button 
+           hover:shadow-button-hover active:scale-[0.98] transition-all duration-200 
+           min-h-touch px-6 inline-flex items-center justify-center gap-2;
+  }
+  
+  .btn-brand-soft {
+    @apply bg-gradient-brand-soft text-brand-700 font-semibold rounded-button 
+           hover:bg-brand-100 active:scale-[0.98] transition-all duration-200 
+           min-h-touch px-6 inline-flex items-center justify-center gap-2;
+  }
+  
+  .btn-premium {
+    @apply bg-gradient-premium text-white font-semibold rounded-button shadow-glow-purple 
+           hover:opacity-90 active:scale-[0.98] transition-all duration-200 
+           min-h-touch px-6 inline-flex items-center justify-center gap-2;
+  }
+  
+  .btn-ghost {
+    @apply bg-transparent text-gray-600 font-medium rounded-button 
+           hover:bg-gray-100 active:bg-gray-200 active:scale-[0.98] transition-all duration-200 
+           min-h-touch px-4 inline-flex items-center justify-center gap-2;
+  }
+  
+  /* Touch Target (minimum 44px) */
+  .touch-target {
+    @apply min-h-touch min-w-touch;
+  }
+  
+  /* Bottom Sheet */
+  .bottom-sheet {
+    @apply fixed inset-x-0 bottom-0 z-modal bg-white rounded-t-4xl shadow-bottom-sheet 
+           pb-[max(16px,calc(16px+var(--safe-area-bottom)))];
+  }
+  
+  .bottom-sheet-handle {
+    @apply w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-2;
+  }
+  
+  /* Modal Overlay */
+  .modal-overlay {
+    @apply fixed inset-0 z-modal bg-black/50 backdrop-blur-xs animate-fade-in;
+  }
+  
+  /* Premium Badge */
+  .badge-pro {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full 
+           bg-gradient-premium text-white text-caption-sm font-semibold;
+  }
+  
+  .badge-free {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full 
+           bg-gray-100 text-gray-600 text-caption-sm font-semibold;
+  }
+  
+  /* Credit Display */
+  .credit-pill {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full 
+           bg-brand-50 border border-brand-200/60 text-brand-700;
+  }
+  
+  /* Empty State */
+  .empty-state {
+    @apply flex flex-col items-center justify-center text-center p-8 space-y-4;
+  }
+  
+  .empty-state-icon {
+    @apply w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400;
+  }
+  
+  /* Action Grid (for bottom sheets) */
+  .action-grid {
+    @apply grid grid-cols-4 gap-2 px-4;
+  }
+  
+  .action-grid-item {
+    @apply flex flex-col items-center justify-center gap-1.5 py-3 px-2 
+           rounded-2xl transition-all active:scale-95 min-h-[72px];
+  }
+  
+  /* Glass Effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-lg;
+  }
+  
+  .glass-dark {
+    @apply bg-gray-900/80 backdrop-blur-lg;
+  }
+  
+  /* Shimmer Loading */
+  .shimmer {
+    @apply relative overflow-hidden bg-gray-200;
+  }
+  
+  .shimmer::after {
+    content: '';
+    @apply absolute inset-0 bg-gradient-shimmer bg-[length:200%_100%] animate-shimmer;
+  }
+
+  /* Segmented Control */
+  .segmented-control {
+    @apply inline-flex bg-gray-100 rounded-xl p-1 gap-0.5;
+  }
+
+  .segmented-control-item {
+    @apply flex-1 px-4 py-2 text-label-sm text-center rounded-lg 
+           text-gray-500 cursor-pointer select-none
+           active:scale-[0.97];
+  }
+
+  .segmented-control-item[data-active="true"] {
+    @apply bg-white text-gray-900 shadow-soft font-semibold;
+  }
+
+  /* Chip */
+  .chip {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full
+           text-caption font-medium border border-gray-200 bg-white
+           active:scale-[0.97];
+  }
+
+  .chip[data-selected="true"] {
+    @apply bg-brand-500 text-white border-brand-500;
+  }
+
+  /* Snackbar */
+  .snackbar {
+    @apply fixed bottom-[max(16px,calc(16px+var(--safe-area-bottom)))] left-4 right-4
+           z-toast flex items-center gap-3 px-4 py-3
+           bg-gray-900 text-white text-body-sm rounded-2xl shadow-modal;
+  }
+
+  /* Focus Visible — keyboard-only focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
+  }
+}
+
+/* Hide scrollbar but keep scroll */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

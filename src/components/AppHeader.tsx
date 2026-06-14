@@ -1,9 +1,7 @@
-// src/components/AppHeader.jsx
+// src/components/AppHeader.tsx
 
 import React from 'react';
-import { Crown, LogOut, ChevronDown, Menu, Coins, User as UserIcon, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { LogOut, Coins, User as UserIcon, HelpCircle, Gift, ChevronDown } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -14,7 +12,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Capacitor } from '@capacitor/core';
 
-// Assuming these are imported correctly:
 import MobileSidebar from '@/components/Sidebar';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 
@@ -22,176 +19,159 @@ interface AppHeaderProps {
   user: any;
   isAuthenticated: boolean;
   setShowPricing: (show: boolean) => void;
+  setShowRewardsCenter?: (show: boolean) => void;
   handleSignOutWithHaptic: () => void;
   handleDeleteAccount: () => void;
   onNavigate: (page: string) => void;
+  onShowHelp?: () => void;
+  onShowAuth?: () => void;
+  isMobileShellEnabled?: boolean;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   user,
   isAuthenticated,
   setShowPricing,
+  setShowRewardsCenter,
   handleSignOutWithHaptic,
   onNavigate,
+  onShowHelp,
+  onShowAuth,
+  isMobileShellEnabled = false,
 }) => {
-  
-  // --- Internal Components for cleaner render ---
-
-  const LogoSection = () => (
-    <a 
-      href={Capacitor.isNativePlatform() ? undefined : '/'} 
-      className="flex items-center gap-3 group transition-opacity hover:opacity-90"
-    >
-      <div className="relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 to-purple-600 rounded-full blur opacity-0 group-hover:opacity-30 transition duration-500"></div>
-        <img 
-          className="relative w-10 h-10 rounded-full border border-slate-100 shadow-sm bg-white object-cover" 
-          src={'https://res.cloudinary.com/djpcokxvn/image/upload/v1763046539/campusprint_kyc-documents/cropped_circle_image_1_ymbe1t.png'} 
-          alt="Logo"
-        />
-      </div>
-      <div className="flex flex-col">
-        <span className="text-lg font-bold text-slate-900 leading-tight tracking-tight">
-          Hair Studio
-        </span>
-        {/* "Try-On" badge moved to subtitle for cleaner look */}
-        <span className="text-[10px] font-bold tracking-wider uppercase text-amber-600 flex items-center gap-1">
-           Virtual Try-On <Sparkles className="w-3 h-3" />
-        </span>
-      </div>
-    </a>
-  );
-
-  const UserProfileTrigger = () => (
-    <button className="flex items-center gap-2 p-1 pr-3 rounded-full border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all duration-200 bg-white shadow-sm group focus:ring-2 focus:ring-amber-500/20 focus:outline-none">
-      {user?.avatar ? (
-        <img
-          src={user.avatar}
-          alt={user.avatar}
-          className="w-8 h-8 rounded-full object-cover border border-slate-100"
-        />
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-          <UserIcon className="w-4 h-4" />
-        </div>
-      )}
-      
-      <div className="flex flex-col items-start hidden sm:flex">
-        <span className="text-xs font-semibold text-slate-700 leading-none max-w-[100px] truncate">
-          {user?.name?.split(' ')[0]}
-        </span>
-        <span className="text-[10px] text-slate-500 leading-none mt-0.5">
-          View Profile
-        </span>
-      </div>
-      <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors ml-1 hidden sm:block" />
-    </button>
-  );
-
-  // --- Main Render ---
 
   return (
     <header 
-      className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-slate-200/60 pt-[env(safe-area-inset-top)]"
+      aria-label="App header"
+      className="sticky top-0 z-header w-full bg-white pt-safe-top border-b border-gray-100/80"
     >
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-2 focus:bg-white focus:text-gray-900 focus:underline">Skip to main content</a>
+      <div className="max-w-7xl mx-auto px-4 h-[56px] flex items-center justify-between">
         
-        {/* LEFT: Mobile Sidebar & Logo */}
-        <div className="flex items-center gap-2 lg:gap-4">
-          <div className="lg:hidden -ml-2">
-            <MobileSidebar
-              user={user}
-              isAuthenticated={isAuthenticated}
-              setShowPricing={setShowPricing}
-              handleSignOutWithHaptic={handleSignOutWithHaptic}
-              handleDeleteAccount={() => {}} // Add handler if needed
-              onNavigate={onNavigate}
+        {/* LEFT: Logo */}
+        <div className="flex items-center gap-2">
+          {!isMobileShellEnabled && (
+            <div className="lg:hidden -ml-1.5">
+              <MobileSidebar
+                user={user}
+                isAuthenticated={isAuthenticated}
+                setShowPricing={setShowPricing}
+                handleSignOutWithHaptic={handleSignOutWithHaptic}
+                handleDeleteAccount={() => {}}
+                onNavigate={onNavigate}
+                onShowHelp={onShowHelp}
+                onShowAuth={onShowAuth}
+              />
+            </div>
+          )}
+          <a 
+            href={Capacitor.isNativePlatform() ? undefined : '/'} 
+            className="flex items-center gap-2.5 group"
+          >
+            <img 
+              className="w-9 h-9 rounded-full object-cover ring-1 ring-black/[0.06]" 
+              src={'https://res.cloudinary.com/djpcokxvn/image/upload/v1777118970/HairStudio/app_logo_premium.png'} 
+              alt="Hair Studio home"
             />
-          </div>
-          <LogoSection />
+            <span className="text-[16px] font-bold text-gray-900 tracking-tight">
+              Hair Studio
+            </span>
+          </a>
         </div>
 
         {/* RIGHT: Actions */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          
+        <div className="flex items-center gap-1.5">
           {isAuthenticated ? (
             <>
-              {/* Credits Display (Clickable) */}
-              <div 
+              {/* Credits pill */}
+              <button 
                 onClick={() => setShowPricing(true)}
-                className="cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200/60 text-amber-700 hover:bg-amber-100/80 transition-colors"
+                aria-label={`${Number(user?.credits).toFixed(0)} credits`}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-gray-100 ring-1 ring-black/[0.04] active:scale-[0.97] transition-transform"
               >
-                <Coins className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-bold font-mono">
+                <Coins className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                <span className="text-[13px] font-semibold text-gray-600 tabular-nums">
                   {Number(user?.credits).toFixed(0)}
                 </span>
-                <span className="text-xs font-medium text-amber-600/80">Credits</span>
-              </div>
+              </button>
 
-              {/* User Dropdown */}
+              {/* User avatar dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <div><UserProfileTrigger /></div>
+                  <button 
+                    aria-label={`${user?.name || 'User'} menu`}
+                    className="flex items-center gap-1 h-9 pl-0.5 pr-1.5 rounded-full hover:bg-gray-50 active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-200"
+                  >
+                    {user?.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="w-8 h-8 rounded-full object-cover ring-1 ring-black/[0.06]"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                        <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                      </div>
+                    )}
+                    <ChevronDown className="w-3 h-3 text-gray-300" />
+                  </button>
                 </DropdownMenuTrigger>
                 
-                <DropdownMenuContent className="w-64 p-2" align="end" sideOffset={8}>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                    </div>
+                <DropdownMenuContent className="w-52 rounded-2xl p-1.5 shadow-lg shadow-gray-200/60 ring-1 ring-black/[0.04] border-0" align="end" sideOffset={6}>
+                  <DropdownMenuLabel className="px-2.5 py-2">
+                    <p className="text-[13px] font-semibold text-gray-900 truncate">{user?.name}</p>
+                    <p className="text-[11px] text-gray-400 truncate mt-0.5">{user?.email}</p>
                   </DropdownMenuLabel>
                   
-                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuSeparator className="my-1 bg-gray-100" />
                   
-                  {/* Mobile Credit View inside dropdown (since it's hidden on navbar mobile) */}
-                  <div className="sm:hidden p-2 bg-slate-50 rounded-md mb-2 border border-slate-100 flex justify-between items-center">
-                     <span className="text-xs font-medium text-slate-600">Available Credits</span>
-                     <div className="flex items-center gap-1 text-amber-600 font-bold text-sm">
-                        <Coins className="w-3 h-3" />
-                        {Number(user?.credits).toFixed(0)}
-                     </div>
-                  </div>
-
                   <DropdownMenuItem 
                     onClick={() => setShowPricing(true)} 
-                    className="cursor-pointer bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 focus:bg-amber-100 border border-amber-100 mb-1"
+                    className="cursor-pointer rounded-xl text-[13px] gap-2.5 py-2.5 px-2.5 focus:bg-gray-50"
                   >
-                    <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
-                    <span className="font-medium">Get More Credits</span>
+                    <Coins className="h-4 w-4 text-gray-400" />
+                    <span className="font-medium text-gray-700">Get Credits</span>
                   </DropdownMenuItem>
 
-                  <DropdownMenuSeparator />
+                  {setShowRewardsCenter && (
+                    <DropdownMenuItem 
+                      onClick={() => setShowRewardsCenter(true)} 
+                      className="cursor-pointer rounded-xl text-[13px] gap-2.5 py-2.5 px-2.5 focus:bg-gray-50"
+                    >
+                      <Gift className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium text-gray-700">Earn Free Credits</span>
+                    </DropdownMenuItem>
+                  )}
 
-                  <DropdownMenuItem onClick={handleSignOutWithHaptic} className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                  {onShowHelp && (
+                    <DropdownMenuItem 
+                      onClick={onShowHelp} 
+                      className="cursor-pointer rounded-xl text-[13px] gap-2.5 py-2.5 px-2.5 focus:bg-gray-50"
+                    >
+                      <HelpCircle className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium text-gray-700">Help</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator className="my-1 bg-gray-100" />
+
+                  <DropdownMenuItem 
+                    onClick={handleSignOutWithHaptic} 
+                    className="cursor-pointer rounded-xl text-[13px] gap-2.5 py-2.5 px-2.5 text-red-500 focus:text-red-500 focus:bg-red-50/60"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="font-medium">Sign out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              {/* Desktop 'Get Credits' Button (Primary Call to Action) */}
-              <Button
-                size="sm"
-                onClick={() => setShowPricing(true)}
-                className="hidden lg:flex bg-gray-900 hover:bg-gray-800 text-white shadow-lg shadow-gray-200 rounded-full px-5"
-              >
-                <Crown className="w-3.5 h-3.5 mr-2 text-amber-400" />
-                Get Premium
-              </Button>
             </>
           ) : (
-            /* Guest State */
-            <div className="flex items-center gap-2">
-               <span className="text-xs text-slate-500 font-medium hidden sm:block">
-                  Save your styles?
-               </span>
-              <GoogleSignInButton
-                variant="outline"
-                size="sm"
-                className="border-slate-200 hover:bg-slate-50 text-slate-700 font-medium shadow-sm"
-              />
-            </div>
+            <GoogleSignInButton
+              variant="outline"
+              size="sm"
+              className="h-8 px-3.5 text-[13px] rounded-full border-gray-200 hover:bg-gray-50 text-gray-700 font-medium shadow-none"
+            />
           )}
         </div>
       </div>

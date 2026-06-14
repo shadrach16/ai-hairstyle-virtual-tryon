@@ -5,7 +5,7 @@ import { Share, ShareOptions } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Share2, AlertCircle, Sparkles, Film, Download } from 'lucide-react';
+import { Loader2, Share2, AlertCircle, Film, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useInView } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -43,7 +43,7 @@ export function ShareableGifCreator({
   const getDefaultCaption = useCallback(() => {
     const linkText = referralLink ? `\n\nTry it yourself & get FREE credits: ${referralLink}` : '';
     const appTag = `#${appName.replace(/\s+/g, '')}`;
-    return `Before vs. After! 💇✨\n#HairTransformation #AIStyle ${appTag}${linkText}`;
+    return `Before vs. After! 💇\n#HairTransformation #AIStyle ${appTag}${linkText}`;
   }, [appName, referralLink]);
 
   useEffect(() => {
@@ -286,7 +286,7 @@ export function ShareableGifCreator({
         {/* Idle Placeholder */}
         {status === 'idle' && !gifDataUrl && (
           <div className='text-slate-400 flex flex-col items-center p-4 text-center'>
-            <Sparkles className="w-12 h-12 mb-2 opacity-50"/>
+            <Film className="w-12 h-12 mb-2 opacity-50"/>
             <span className="text-sm font-medium">Your Before & After<br/>GIF will appear here</span>
           </div>
         )}

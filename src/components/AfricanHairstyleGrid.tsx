@@ -9,9 +9,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; 
 import { useHairstyles } from '@/hooks/useHairstyles';
 import { apiService, type Hairstyle } from '@/lib/api';
-import { Search, Filter, Coins, Loader2, SortAsc, ChevronDown, Lock, ChevronLeft, ChevronRight, Palette, Upload } from 'lucide-react'; 
+import { Search, Filter, Coins, Loader2, SortAsc, ChevronDown, Lock, ChevronLeft, ChevronRight, Palette, Upload, Heart } from 'lucide-react'; 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AfricanHairstyleGridProps {
   onHairstyleSelect: (hairstyle: Hairstyle) => void;
@@ -39,28 +41,52 @@ const getGenderColor = (gender: string) => {
 
 
 const HairstyleCardSkeleton = () => (
-  <div className="rounded-lg border-2 border-transparent overflow-hidden">
-    <div className="aspect-[4/5] relative bg-slate-200 rounded-lg animate-pulse">
-      {/* Skeleton for Price Badge */}
-      <div className="absolute top-2 right-2 h-5 w-12 bg-slate-300 rounded-full"></div>
-      {/* Skeleton for Title Bar */}
-      <div className="absolute bottom-3 left-3 h-4 w-3/4 bg-slate-300 rounded-md"></div>
+  <div className="rounded-card border-2 border-transparent overflow-hidden">
+    <div className="aspect-[4/5] relative rounded-card overflow-hidden">
+      <Skeleton className="w-full h-full rounded-none" />
+      <div className="absolute top-2 right-2">
+        <Skeleton className="h-5 w-12 rounded-full" />
+      </div>
+      <div className="absolute bottom-3 left-3 right-3">
+        <Skeleton className="h-4 w-3/4" />
+      </div>
     </div>
   </div>
 );
 
 
-const HairstyleCard = ({ hairstyle, isSelected, canAfford, onSelect, isCustom }: { hairstyle: Hairstyle, isSelected: boolean, canAfford: boolean, onSelect: () => void, isCustom: boolean }) => (
+const HairstyleCard = ({ 
+  hairstyle, 
+  isSelected, 
+  canAfford, 
+  onSelect, 
+  isCustom,
+  isFavorited,
+  onToggleFavorite 
+}: { 
+  hairstyle: Hairstyle, 
+  isSelected: boolean, 
+  canAfford: boolean, 
+  onSelect: () => void, 
+  isCustom: boolean,
+  isFavorited: boolean,
+  onToggleFavorite: (e: React.MouseEvent) => void
+}) => (
   <Card
     onClick={onSelect}
+    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
+    tabIndex={0}
+    role="option"
+    aria-selected={isSelected}
+    aria-label={hairstyle.name}
     className={cn(
-      "cursor-pointer transition-all duration-300 group overflow-hidden border-2",
-      isSelected ? 'border-amber-500 shadow-lg' : 'border-transparent hover:shadow-md hover:-translate-y-0.5',
+      "cursor-pointer transition-all duration-300 group overflow-hidden border-2 rounded-card",
+      isSelected ? 'border-brand-500 shadow-glow-amber' : 'border-transparent shadow-card hover:shadow-card-hover hover:-translate-y-0.5',
       !canAfford && !isCustom && 'opacity-50 hover:shadow-none hover:-translate-y-0 cursor-not-allowed'
     )}
   >
     <CardContent className="p-0">
-      <div className="aspect-[4/5] overflow-hidden relative bg-slate-100">
+      <div className="aspect-[4/5] overflow-hidden relative bg-gray-100 rounded-card">
         <img
           src={hairstyle.thumbnail}
           alt={hairstyle.name}
@@ -69,12 +95,26 @@ const HairstyleCard = ({ hairstyle, isSelected, canAfford, onSelect, isCustom }:
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         
-        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white px-2 py-1 rounded-full text-xs font-semibold">
+        {/* Favorite button - top left */}
+        <button
+          onClick={onToggleFavorite}
+          className="absolute top-2 left-2 p-2 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors z-10 min-h-touch min-w-touch flex items-center justify-center"
+          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart 
+            className={cn(
+              "w-4 h-4 transition-colors",
+              isFavorited ? "fill-red-500 text-red-500" : "text-white hover:text-red-300"
+            )} 
+          />
+        </button>
+        
+        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white px-2.5 py-1.5 rounded-full text-caption font-semibold">
           {isCustom ? (
-             <Badge className="bg-amber-500/80 hover:bg-amber-600">Custom</Badge>
+             <Badge className="bg-brand-500/80 hover:bg-brand-600 text-caption-sm">Custom</Badge>
           ) : (
             <>
-              <Coins className="w-3 h-3 text-amber-300" />
+              <Coins className="w-3 h-3 text-brand-300" />
               <span>{hairstyle.price}</span>
             </>
           )}
@@ -87,7 +127,7 @@ const HairstyleCard = ({ hairstyle, isSelected, canAfford, onSelect, isCustom }:
         )}
         
         <div className="absolute bottom-0 left-0 p-3">
-          <h4 className="font-semibold text-sm text-white leading-tight line-clamp-2">
+          <h4 className="text-label-sm text-white leading-tight line-clamp-2">
             {isCustom ? `Upload ID: ${hairstyle._id.slice(-4)}` : hairstyle.name}
           </h4>
         </div>
@@ -107,6 +147,7 @@ export default function AfricanHairstyleGrid({
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeTab, setActiveTab] = useState<'default' | 'custom'>('default');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   // Filters for Default Styles (The Collections)
   const [defaultFilters, setDefaultFilters] = useState({
@@ -169,6 +210,43 @@ export default function AfricanHairstyleGrid({
     }
   }, [activeTab]);
 
+  // Load favorites on mount
+  const { isAuthenticated } = useAuth();
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const loadFavorites = async () => {
+      try {
+        const result = await apiService.getFavoriteIds();
+        if (result.success && Array.isArray(result.data)) {
+          setFavoriteIds(new Set(result.data));
+        }
+      } catch (error) {
+        console.error('Failed to load favorites:', error);
+      }
+    };
+    loadFavorites();
+  }, [isAuthenticated]);
+
+  const handleToggleFavorite = useCallback(async (e: React.MouseEvent, hairstyle: Hairstyle) => {
+    e.stopPropagation();
+    if (!isAuthenticated) return;
+    const hairstyleId = hairstyle._id || hairstyle.id;
+    try {
+      const result = await apiService.toggleFavorite('hairstyle', hairstyleId);
+      setFavoriteIds(prev => {
+        const next = new Set(prev);
+        if (result.isFavorited) {
+          next.add(hairstyleId);
+        } else {
+          next.delete(hairstyleId);
+        }
+        return next;
+      });
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
+  }, [isAuthenticated]);
+
   const canAfford = useCallback((price: number) => userCredits >= price, [userCredits]);
 
   const handleStyleSelect = useCallback((hairstyle: Hairstyle) => {
@@ -177,6 +255,16 @@ export default function AfricanHairstyleGrid({
       setShowPricing(true);
       return;
     }
+    
+    // Track hairstyle selection
+    apiService.trackEvent('hairstyle_selected', {
+      hairstyleId: hairstyle.id || hairstyle._id,
+      hairstyleName: hairstyle.name,
+      category: hairstyle.category,
+      isCustom,
+      price: hairstyle.price
+    });
+    
     onHairstyleSelect(hairstyle);
   }, [canAfford, onHairstyleSelect, setShowPricing, activeTab]);
 
@@ -213,31 +301,31 @@ export default function AfricanHairstyleGrid({
   ];
 
   return (
-    <div className="bg-white border-l border-slate-200 flex flex-col h-full w-[480px] flex-shrink-0">
-      <div className="p-4 border-b bg-gradient-to-r from-amber-50 to-orange-50">
+    <div className="bg-white border-l border-gray-100 flex flex-col h-full w-[480px] flex-shrink-0">
+      <div className="p-4 border-b bg-gradient-brand-soft">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-bold text-gray-900">Style Collections</h2>
-          <div className="flex items-center space-x-1 bg-white px-2 py-1 rounded-full border">
-            <Coins className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-semibold text-gray-700">{Number(userCredits).toFixed(2)}</span>
+          <h2 className="text-title text-gray-900">Style Collections</h2>
+          <div className="credit-pill">
+            <Coins className="w-4 h-4 text-brand-600" />
+            <span className="text-label text-gray-700">{Number(userCredits).toFixed(2)}</span>
           </div>
         </div>
-        <p className="text-sm text-gray-600">Browse and Unlock your next look.</p>
+        <p className="text-body-sm text-gray-600">Browse and Unlock your next look.</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'default' | 'custom')} className="flex-1 flex flex-col overflow-hidden ">
         {/* Tab List */}
-        <TabsList className="shrink-0 grid grid-cols-2 border border-gray-200 bg-gray-200 mx-4 my-3 h-12 rounded-xl p-1">
+        <TabsList className="shrink-0 grid grid-cols-2 border border-gray-200 bg-gray-100 mx-4 my-3 h-12 rounded-2xl p-1">
           <TabsTrigger
             value="default"
-            className="text-sm font-semibold h-8 rounded-lg text-slate-600 transition-all duration-200 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+            className="text-label h-10 rounded-xl text-gray-600 transition-all duration-200 data-[state=active]:bg-gradient-brand data-[state=active]:text-white data-[state=active]:shadow-soft-md"
           >
             <Palette className="w-4 h-4 mr-1.5" />
             The Collections
           </TabsTrigger>
           <TabsTrigger
             value="custom"
-            className="text-sm font-semibold h-8 rounded-lg text-slate-600 transition-all duration-200 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+            className="text-label h-10 rounded-xl text-gray-600 transition-all duration-200 data-[state=active]:bg-gradient-brand data-[state=active]:text-white data-[state=active]:shadow-soft-md"
           >
             <Upload className="w-4 h-4 mr-1.5" />
             My Uploads
@@ -245,24 +333,24 @@ export default function AfricanHairstyleGrid({
         </TabsList>
 
         {/* Filters and Search - Common wrapper */}
-        <div className="px-4 py-1 space-y-3 border-b border-slate-200 flex-shrink-0">
-          <div className="  flex w-full items-center justify-between">
-          <div className="relative w-[60%]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <div className="px-4 py-2 space-y-3 border-b border-gray-100 flex-shrink-0">
+          <div className="flex w-full items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input
               placeholder={activeTab === 'default' ? 'Search default styles...' : 'Search your custom uploads...'}
               value={currentFilters.search}
               onChange={(e) => updateFilter('search', e.target.value)}
-              className="pl-10 h-10 text-sm"
+              className="pl-10 h-11 text-body-sm rounded-button"
             />
           </div>
                <Button
                 onClick={handleUploadHairstyle}
                 variant="outline"
-                className=" h-10 text-sm font-semibold bg-amber-600 text-white  hover:bg-amber-400   flex items-center justify-center"
+                className="h-11 text-label btn-brand"
               >
-                <Upload className="w-5 h-5" />
-              Upload Hairstyle
+                <Upload className="w-4 h-4" />
+              Upload
 
               </Button>
           </div>
@@ -383,7 +471,7 @@ export default function AfricanHairstyleGrid({
             {!currentHook.isLoading && !currentHook.error && (
               <TabsContent value={activeTab} className="h-full m-0 data-[state=active]:block">
                 {currentHook.hairstyles?.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-3 gap-1" role="listbox" aria-label="Hairstyle options">
                     {currentHook.hairstyles.map((hairstyle) => (
                       <HairstyleCard
                         key={hairstyle._id}
@@ -392,6 +480,8 @@ export default function AfricanHairstyleGrid({
                         canAfford={canAfford(hairstyle.price)}
                         onSelect={() => handleStyleSelect(hairstyle)}
                         isCustom={activeTab === 'custom'}
+                        isFavorited={favoriteIds.has(hairstyle._id)}
+                        onToggleFavorite={(e) => handleToggleFavorite(e, hairstyle)}
                       />
                     ))}
                   </div>

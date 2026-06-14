@@ -1,280 +1,223 @@
-import React, { useState } from 'react';
-import { Button }  from '@/components/ui/button';
+// @file: OnboardingGuide.tsx
+// Clean, native-feeling onboarding with smooth transitions
+
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  UploadCloud,
-  Sparkles,
-  Gift,
- 
+  Camera,
+  ArrowRight,
+  Share2,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
- 
-// Import your GIFs from assets
-import basicGif from '../../assets/basic.gif';
-import featuredGif from '../../assets/featured.gif';
-import premiumGif from '../../assets/premium.gif';
-
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { apiService } from '@/lib/api';
 
 interface OnboardingGuideProps {
   isOpen: boolean;
   onClose: () => void;
+  onComplete?: (skipped: boolean) => void;
 }
 
-// --- Card Data ---
-// We define the data for our new full-screen cards here
-const tierData = [
-   {
-    key: 'basic',
-    title: 'Basic',
-    subtitle: 'The Classics',
-    icon: <img src={basicGif}   />,
-    description: 'Your essential, timeless looks to get started.',
-    bgColor: 'bg-gray-100',
-    textColor: 'text-amber-500',
-    borderColor: 'border-gray-300',
-  }, 
-  {
- 
-        key: 'featured',
-    title: 'Featured',
-    subtitle: 'The Collections',
-    icon: <img src={premiumGif} className='rounded-lg  '   />,
-    description: "Curated 'drops' of trending and seasonal hairstyles",
-    bgColor: 'bg-yellow-50',
-    textColor: 'text-amber-500',
-    borderColor: 'border-amber-500',
-  },{
-     key: 'premium',
-    title: 'Premium',
-    subtitle: 'The Artist Collabs',
-    icon: <img src={featuredGif}   />,
-    description: "Exclusive, limited-edition looks from world-class artists.",
-    bgColor: 'bg-blue-50',
-    textColor: 'text-blue-500',
-    borderColor: 'border-blue-500',
-  },
+const ONBOARDING_VERSION = 3;
 
+const triggerHaptic = async () => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Haptics.impact({ style: ImpactStyle.Light });
+    }
+  } catch (e) {}
+};
+
+const slides = [
+  {
+    id: 'photo',
+    emoji: '📸',
+    title: 'Snap or upload\nyour photo',
+    description: 'A quick selfie is all you need. Good lighting gives the best AI results.',
+    gradient: 'from-sky-500/10 via-blue-500/5 to-transparent',
+    accentColor: 'bg-sky-500',
+  },
+  {
+    id: 'style',
+    emoji: '✨',
+    title: 'Choose any\nhairstyle',
+    description: 'Browse hundreds of curated styles — braids, locs, fades, wigs and more.',
+    gradient: 'from-amber-500/10 via-orange-500/5 to-transparent',
+    accentColor: 'bg-amber-500',
+  },
+  {
+    id: 'result',
+    emoji: '🪞',
+    title: 'See it on you\nin seconds',
+    description: 'AI transforms your look instantly. Save it, share it, or show your stylist.',
+    gradient: 'from-emerald-500/10 via-teal-500/5 to-transparent',
+    accentColor: 'bg-emerald-500',
+  },
 ];
 
-// --- The New Full-Screen Tier Card ---
-const TierCard = ({ data, isActive }: { data: typeof tierData[0], isActive: boolean }) => {
-  return (
-    <motion.div
-      key={data.key}
-      className={`absolute inset-0 w-full h-full flex flex-col justify-center items-center p-8 ${data.bgColor}`}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-    >
-      <motion.div
-        className={`relative w-full max-w-xs min-h-96 ${data.borderColor} border-2 rounded-2xl ${data.bgColor} shadow-xl flex flex-col justify-center items-center text-center p-6 overflow-hidden`}
-        // Give the active card a subtle "lift"
-        animate={{ scale: isActive ? 1.05 : 1, y: isActive ? -10 : 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      >
-        {/* ✨ THE PREMIUM HOLOGRAPHIC SHIMMER ✨ */}
-        {data.key === 'premium' && (
-          <motion.div
-            className="absolute top-0 left-0 w-full h-full opacity-50"
-            style={{
-              background:
-                'linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.8) 50%, transparent 80%)',
-            }}
-            // Animate the shimmer across the card
-            animate={{ x: ['-100%', '100%'] }}
-            transition={{
-              duration: 2.5,
-              repeat: Infinity,
-              ease: 'linear',
-              delay: 0.5,
-            }}
-          />
-        )}
+const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ 
+  isOpen, 
+  onClose,
+  onComplete,
+}) => {
+  const [step, setStep] = useState(0);
 
-        <span
-          className={`text-xs font-bold bg-amber-100 px-2 py-0.5 mb-2 rounded-full   tracking-widest ${data.textColor}`}
-        >
-          {data.title}
-        </span>
-        {data.icon}
-        <h3 className="text-2xl font-bold text-gray-800 mt-2">{data.subtitle}</h3>
-        <p className="text-gray-600 mt-2 text-md">{data.description}</p>
-      </motion.div>
-    </motion.div>
-  );
-};
+  useEffect(() => {
+    if (isOpen) {
+      apiService.trackEvent('onboarding_started', { version: ONBOARDING_VERSION });
+    }
+  }, [isOpen]);
 
-// --- The New Step 1: Tier Showcase Component ---
-const TierShowcase = () => {
-  const [activeTier, setActiveTier] = useState(1); // Start with "Featured"
-
-  return (
-    <div className="flex flex-col items-center text-center w-full h-full justify-center">
-      {/* 1. The Full-Screen Animated Card */}
-      <div className="w-full flex-1 relative flex items-center justify-center">
-        <AnimatePresence mode="wait">
-          <TierCard
-            key={tierData[activeTier].key}
-            data={tierData[activeTier]}
-            isActive={true}
-          />
-        </AnimatePresence>
-      </div>
-
-      {/* 2. The Tier Selector "Tabs" */}
-      <div className="flex justify-center space-x-2 p-4 bg-white w-full">
-        {tierData.map((tier, index) => (
-          <button
-            key={tier.key}
-            onClick={() => setActiveTier(index)}
-            className={`py-2 px-4 rounded-full text-sm font-semibold transition-all ${
-              activeTier === index
-                ? `bg-amber-600 text-white shadow-md`
-                : `bg-gray-100 text-gray-700`
-            }`}
-          >
-            {tier.title}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// --- Define the NEW "Digital Fashion" steps ---
-const onboardingSteps = [
-  {
-    // ✨ This is now a full-screen interactive component!
-    component: <TierShowcase />,
-    title: 'Welcome to Hair Studio',
-    description:
-      "This is your digital fashion closet. Discover the look that defines you.",
-  }, 
-];
-
-// --- Animation variants (No changes) ---
-const slideVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? '100%' : '-100%',
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (direction: number) => ({
-    x: direction < 0 ? '100%' : '-100%',
-    opacity: 0,
-  }),
-};
-
-// --- Main Onboarding Guide Component ---
-const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [direction, setDirection] = useState(1);
-
-  if (!isOpen) {
-    return null;
-  }
-
-  const handleNext = () => {
-    if (currentStep < onboardingSteps.length - 1) {
-      setDirection(1);
-      setCurrentStep((prev) => prev + 1);
+  const handleNext = useCallback(() => {
+    triggerHaptic();
+    if (step < slides.length - 1) {
+      const next = step + 1;
+      setStep(next);
+      apiService.trackEvent('onboarding_step_viewed', {
+        step: next,
+        stepId: slides[next].id,
+        version: ONBOARDING_VERSION,
+      });
     } else {
+      apiService.trackEvent('onboarding_completed', {
+        version: ONBOARDING_VERSION,
+        stepsViewed: slides.length,
+      });
+      onComplete?.(false);
       onClose();
     }
-  };
+  }, [step, onClose, onComplete]);
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
+    triggerHaptic();
+    apiService.trackEvent('onboarding_skipped', {
+      version: ONBOARDING_VERSION,
+      skippedAtStep: step,
+      stepId: slides[step].id,
+    });
+    onComplete?.(true);
     onClose();
-  };
+  }, [onClose, onComplete, step]);
 
-  const isLastStep = currentStep === onboardingSteps.length - 1;
+  if (!isOpen) return null;
+
+  const isLast = step === slides.length - 1;
+  const current = slides[step];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-white">
-      {/* 1. Main Content Area */}
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-        <AnimatePresence initial={false} custom={direction}>
+    <div className="fixed inset-0 z-[60] bg-white flex flex-col overflow-hidden">
+      {/* Ambient gradient background */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current.id + '-bg'}
+          className={`absolute inset-0 bg-gradient-to-b ${current.gradient}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+        />
+      </AnimatePresence>
+
+      {/* Header: Logo + Skip */}
+      <div className="relative z-10 flex items-center justify-between px-5 pt-[max(16px,calc(var(--safe-area-top,0px)+12px))] pb-2">
+        <div className="flex items-center gap-2">
+          <img
+            src="https://res.cloudinary.com/djpcokxvn/image/upload/v1777118970/HairStudio/app_logo_premium.png"
+            alt="Hair Studio"
+            className="w-8 h-8 rounded-full ring-1 ring-black/[0.06]"
+          />
+          <span className="text-[14px] font-bold text-gray-900 tracking-tight">Hair Studio</span>
+        </div>
+        <button
+          onClick={handleSkip}
+          className="text-[13px] font-semibold text-gray-400 active:text-gray-600 transition-colors py-1.5 px-3 rounded-full active:bg-gray-100"
+        >
+          Skip
+        </button>
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8">
+        <AnimatePresence mode="wait">
           <motion.div
-            key={currentStep}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="absolute w-full h-full flex items-center justify-center"
+            key={current.id}
+            className="flex flex-col items-center w-full max-w-sm"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            {/* ✨ We now render the correct component for the step */}
-            <StepContent
-              stepData={onboardingSteps[currentStep]}
-            />
+            {/* Large emoji */}
+            <motion.div
+              className="mb-8"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              <span className="text-[72px] leading-none block">{current.emoji}</span>
+            </motion.div>
+
+            {/* Title */}
+            <h1 className="text-[32px] font-bold text-gray-900 text-center tracking-tight leading-[1.15] whitespace-pre-line mb-3">
+              {current.title}
+            </h1>
+
+            {/* Description */}
+            <p className="text-[15px] leading-relaxed text-gray-400 text-center max-w-[280px]">
+              {current.description}
+            </p>
+
+            {/* Step indicator chips */}
+            <div className="flex items-center gap-3 mt-8">
+              {slides.map((s, i) => (
+                <motion.button
+                  key={s.id}
+                  onClick={() => { triggerHaptic(); setStep(i); }}
+                  className={`flex items-center gap-1.5 rounded-full transition-all duration-300 ${
+                    i === step
+                      ? 'h-8 px-3.5 bg-gray-900 shadow-sm'
+                      : 'h-8 w-8 bg-gray-100 active:bg-gray-200'
+                  }`}
+                  layout
+                  aria-label={`Step ${i + 1}`}
+                >
+                  {i === step ? (
+                    <>
+                      <span className="text-[11px] font-bold text-white">{i + 1}/{slides.length}</span>
+                    </>
+                  ) : (
+                    <span className={`w-1.5 h-1.5 rounded-full mx-auto ${
+                      i < step ? 'bg-gray-400' : 'bg-gray-300'
+                    }`} />
+                  )}
+                </motion.button>
+              ))}
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* 2. Bottom Navigation Bar */}
-      <div className="flex h-24 w-full items-center justify-between p-6">
-        
-
-        <div className=" justify-center gap-2 hidden sm:flex">
-          {onboardingSteps.map((_, index) => (
-            <div
-              key={index}
-              className={`h-2 w-2 rounded-full transition-all ${
-                index === currentStep ? 'w-4 bg-amber-500' : 'bg-gray-300'
-              }`}
-            />
-          ))}
-        </div>
-
-        <Button
+      {/* Bottom CTA */}
+      <div className="relative z-10 px-6 pb-[max(28px,calc(28px+var(--safe-area-bottom,0px)))]">
+        <motion.button
           onClick={handleNext}
-          className="rounded-full w-full sm:w-60 bg-amber-600 px-6 py-3 font-semibold text-white hover:bg-amber-700"
+          className="w-full h-[54px] rounded-2xl bg-[#1a1a1a] active:scale-[0.98] text-white font-semibold text-[15px] transition-transform flex items-center justify-center gap-2 shadow-sm"
+          whileTap={{ scale: 0.98 }}
         >
-          {isLastStep ? 'Get Started' : 'Next'}
-        </Button>
+          {isLast ? (
+            <>
+              Get Started
+              <ArrowRight className="w-4 h-4" />
+            </>
+          ) : (
+            <>
+              Continue
+              <ChevronRight className="w-4 h-4" />
+            </>
+          )}
+        </motion.button>
       </div>
-    </div>
-  );
-};
-
-// --- Helper component for the step content ---
-// ✨ This is now smarter: it renders EITHER a custom component OR the default image/text
-const StepContent = ({
-  stepData,
-}: {
-  stepData: typeof onboardingSteps[0];
-}) => {
-  // Check if a custom component is provided (like our TierShowcase)
-  if (stepData.component) {
-    return (
-      <div className="flex flex-col items-center text-center h-full w-full">
-        {/* Render the full-screen component */}
-        <div className="flex-1 w-full">
-          {stepData.component}
-        </div>
-        
-        {/* Render the text *below* the component */}
-        <div className="pb-4 px-6">
-          <h3 className="text-3xl font-bold text-gray-800 logo">{stepData.title}</h3>
-          <p className="mt-4 max-w-sm text-base text-gray-600">{stepData.description}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // --- This is the default layout for steps 2, 3, and 4 ---
-  return (
-    <div className="flex flex-col items-center text-center p-6">
-      <div className="mb-10">
-        {stepData.image}
-      </div>
-      <h3 className="text-3xl font-bold text-gray-900">{stepData.title}</h3>
-      <p className="mt-4 max-w-sm text-base text-gray-600">{stepData.description}</p>
     </div>
   );
 };

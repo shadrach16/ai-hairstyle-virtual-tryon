@@ -1,41 +1,31 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useHairstyles } from '@/hooks/useHairstyles';
 import { useDebounce } from '@/hooks/useDebounce';
 import { apiService, type Hairstyle } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   Search,
-  Filter,
   Coins,
-  Loader2,
-  SortAsc,
-  ChevronDown,
-  Check,
-  Lock,
   X,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  Upload,
-  Palette 
+  Crown,
+  Zap,
+  Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface MobileHairstyleModalProps {
   isOpen: boolean;
-  isDesktop: boolean;
+  isDesktop?: boolean;
   setShowPricing: (value: boolean) => void;
   onClose: () => void;
   onHairstyleSelect: (hairstyle: Hairstyle) => void;
   selectedHairstyle: Hairstyle | null;
   userCredits?: number;
+  hairstyles?: Hairstyle[];
 }
 
 interface Category {
@@ -43,203 +33,142 @@ interface Category {
   count: number;
 }
 
-interface ContentSectionProps {
-  hairstyles: Hairstyle[];
-  isLoading: boolean;
-  error: string | null;
-  selectedHairstyle: Hairstyle | null;
-  canAfford: (price: number) => boolean;
-  handleStyleSelect: (hairstyle: Hairstyle) => void;
-  setShowPricing: (value: boolean) => void;
-}
-
-// Haptics utility with safety check
-const triggerHapticFeedback = async (style: ImpactStyle = 'light') => {
-  try {
-    await Haptics.impact({ style });
-  } catch (error) {
-    console.debug('Haptics not available');
-  }
+const triggerHapticFeedback = async (style: ImpactStyle = ImpactStyle.Light) => {
+  try { await Haptics.impact({ style }); } catch {}
 };
 
-// Skeleton loader component
-const HairstyleCardSkeleton = React.memo(() => (
-  <div className="rounded-lg border-2 border-transparent overflow-hidden">
-    <div className="aspect-[4/5] relative bg-slate-200 rounded-lg animate-pulse">
-      <div className="absolute top-2 right-2 h-5 w-12 bg-slate-300 rounded-full" />
-      <div className="absolute bottom-3 left-3 h-4 w-3/4 bg-slate-300 rounded-md" />
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+const CardSkeleton = () => (
+  <div className="flex flex-col">
+    <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-100">
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
     </div>
   </div>
-));
+);
 
-HairstyleCardSkeleton.displayName = 'HairstyleCardSkeleton';
+// ── Style Card ────────────────────────────────────────────────────────────────
 
-// Hairstyle card component with memoization
-const HairstyleCard = React.memo(({
+const StyleCard = React.memo(({
   hairstyle,
   isSelected,
   canAfford,
   onSelect,
-  setShowPricing,
+  onShowPricing,
 }: {
   hairstyle: Hairstyle;
   isSelected: boolean;
   canAfford: boolean;
   onSelect: () => void;
-  setShowPricing: (value: boolean) => void;
+  onShowPricing: () => void;
 }) => {
   const handleClick = useCallback(() => {
-    triggerHapticFeedback('light');
+    triggerHapticFeedback();
     if (hairstyle.isCustom || canAfford) {
       onSelect();
     } else {
-      setShowPricing(true);
+      onShowPricing();
     }
-  }, [hairstyle.isCustom, canAfford, onSelect, setShowPricing]);
-
-  const priceDisplay = useMemo(() => {
-    if (hairstyle.isCustom) {
-      return <span className="text-amber-300 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Custom</span>;
-    }
-
-    const tierEmoji = hairstyle.price >= 4 ? '🦁' : hairstyle.price === 3 ? '🔥' : '🦌';
-    
-    return (
-      <>
-        <span className="sm:w-3 sm:h-3">{tierEmoji}</span>
-        <Coins className="w-4 h-4 text-amber-300 sm:w-3 sm:h-3" />
-        <span>{hairstyle.price}</span>
-      </>
-    );
-  }, [hairstyle.isCustom, hairstyle.price, canAfford]);
+  }, [hairstyle.isCustom, canAfford, onSelect, onShowPricing]);
 
   return (
-    <div
+    <motion.button
+      layout
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.18 }}
       onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      aria-label={`Select ${hairstyle.name} hairstyle${hairstyle.isCustom ? ' (custom)' : `, costs ${hairstyle.price} credits`}`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
       className={cn(
-        'cursor-pointer transition-all duration-300 group overflow-hidden rounded-lg border-2',
-        'focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2',
-        'sm:hover:shadow-sm sm:hover:-translate-y-0.5',
-        isSelected ? 'border-amber-500 shadow-md ring-2 ring-amber-500' : 'border-transparent hover:shadow-sm',
-        !canAfford && !hairstyle.isCustom && 'opacity-50 sm:hover:shadow-none sm:hover:-translate-y-0 cursor-not-allowed'
+        'text-left group focus:outline-none transition-all',
+        !canAfford && !hairstyle.isCustom && 'opacity-50'
       )}
     >
-      <div className="aspect-[4/5] overflow-hidden relative bg-slate-100">
+      <div
+        className={cn(
+          'relative aspect-[3/4] rounded-xl overflow-hidden transition-all duration-200',
+          isSelected
+            ? 'ring-[2.5px] ring-[#1a1a1a] ring-offset-1'
+            : 'ring-1 ring-black/[0.06]'
+        )}
+      >
         <img
           src={hairstyle.thumbnail}
           alt={hairstyle.name}
           loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300 group-active:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        
-        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm text-white px-2 py-1 rounded-full text-sm font-semibold sm:text-xs sm:py-0.5">
-          {priceDisplay}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+
+        {/* Price chip */}
+        <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/35 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+          <Coins className="w-2.5 h-2.5 text-amber-300" />
+          {hairstyle.price}
         </div>
 
+        {/* Badges */}
+        {hairstyle.isNew && (
+          <span className="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm text-[8px] font-bold text-gray-800 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            <Zap className="w-2 h-2" /> New
+          </span>
+        )}
+
+        {hairstyle.isPremium && !hairstyle.isNew && (
+          <span className="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-amber-400/90 backdrop-blur-sm text-[8px] font-bold text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+            <Crown className="w-2 h-2" /> Pro
+          </span>
+        )}
+
+        {/* Locked overlay */}
         {!canAfford && !hairstyle.isCustom && (
-          <div className="absolute inset-0 bg-white/30 backdrop-blur-[2px] flex items-center justify-center">
-            <div className="bg-black/60 rounded-full p-3">
-              <Lock className="w-6 h-6 text-white" />
+          <div className="absolute inset-0 bg-white/25 backdrop-blur-[1px] flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <Lock className="w-3.5 h-3.5 text-white" />
             </div>
           </div>
         )}
 
-        <div className="absolute bottom-0 left-0 p-3 sm:p-2 right-0">
-          <h4 className="font-semibold text-sm text-white leading-tight line-clamp-2 sm:text-xs">
-            { hairstyle.isCustom ? hairstyle._id: hairstyle.name}
-          </h4>
-        </div>
+        {/* Selected check */}
+        {isSelected && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full bg-[#1a1a1a] flex items-center justify-center shadow-sm"
+          >
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </motion.div>
+        )}
+
+        {/* Name */}
+        <p className="absolute bottom-1.5 left-1.5 right-7 text-[10px] font-semibold text-white leading-tight line-clamp-2">
+          {hairstyle.isCustom ? 'Custom Style' : hairstyle.name}
+        </p>
       </div>
-    </div>
+    </motion.button>
   );
 });
+StyleCard.displayName = 'StyleCard';
 
-HairstyleCard.displayName = 'HairstyleCard';
+// ── Filter Chip ───────────────────────────────────────────────────────────────
 
+const Chip = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      'flex-shrink-0 h-7 px-3 rounded-full text-[11px] font-semibold transition-all duration-150',
+      active
+        ? 'bg-[#1a1a1a] text-white shadow-sm'
+        : 'bg-gray-100/80 text-gray-500 active:bg-gray-200'
+    )}
+  >
+    {label}
+  </button>
+);
 
+// ── Main Modal ────────────────────────────────────────────────────────────────
 
-const ContentSection = React.memo(({
-  hairstyles,
-  isLoading,
-  error,
-  selectedHairstyle,
-  canAfford,
-  handleStyleSelect,
-  setShowPricing,
-}: ContentSectionProps) => {
-  // 1. Create a ref for the ScrollArea component
-  const scrollAreaRef = React.useRef(null);
-
-  // 2. Use useEffect to scroll to the top when 'hairstyles' changes
-  useEffect(() => {
-
-    const scrollableElement = scrollAreaRef.current?.firstChild;
- scrollableElement?.scrollIntoView();
-
-  }, [hairstyles]); // Effect runs when the list of hairstyles changes
-
-  return (
-    // 3. Attach the ref to the ScrollArea component
-    <ScrollArea className="w-full h-full" >
-      <div className="px-4 bg-slate-100/70">
-        {isLoading && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-3">
-            {Array.from({ length: 12 }).map((_, index) => (
-              <HairstyleCardSkeleton key={index} />
-            ))}
-          </div>
-        )}
-
-        {error && (
-          <div className="text-center py-20 text-slate-500" role="alert">
-            <p className="font-medium text-red-600">Error loading styles</p>
-            <p className="text-sm mt-2">{error}</p>
-          </div>
-        )}
-
-        {!isLoading && !error && (
-          <>
-            {hairstyles?.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2" ref={scrollAreaRef}>
-                {hairstyles.map((hairstyle) => (
-                  <HairstyleCard
-                    key={hairstyle._id}
-                    hairstyle={hairstyle}
-                    isSelected={selectedHairstyle?._id === hairstyle._id}
-                    canAfford={canAfford(hairstyle.price)}
-                    onSelect={() => handleStyleSelect(hairstyle)}
-                    setShowPricing={setShowPricing}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 text-slate-500">
-                {/* Ensure your Filter component is imported */}
-                <Filter className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p className="font-semibold text-slate-700">No Hairstyles Found</p>
-                <p className="text-sm mt-2">Try adjusting your search or filters.</p>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </ScrollArea>
-  );
-});
-
-ContentSection.displayName = 'ContentSection';
-
-// Main modal component
 export default function MobileHairstyleModal({
   isOpen,
   onClose,
@@ -247,72 +176,50 @@ export default function MobileHairstyleModal({
   selectedHairstyle,
   setShowPricing,
   userCredits = 0,
-  isDesktop
 }: MobileHairstyleModalProps) {
   const [activeTab, setActiveTab] = useState<'default' | 'custom'>('default');
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [searchTab, setSearchTab] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [defaultFilters, setDefaultFilters] = useState({
+  const [filters, setFilters] = useState({
     category: 'All',
     gender: 'All',
     feature: 'All',
-    search: '',
     sort: 'popularity',
   });
 
-  const [customFilters, setCustomFilters] = useState({
-    search: '',
-    sort: 'newest',
-  });
-
-  const debouncedDefaultSearch = useDebounce(defaultFilters.search, 300);
-  const debouncedCustomSearch = useDebounce(customFilters.search, 300);
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const defaultHook = useHairstyles({
-    category: defaultFilters.category,
-    gender: defaultFilters.gender,
-    feature: defaultFilters.feature,
-    search: debouncedDefaultSearch,
-    sort: defaultFilters.sort,
-    limit: 12,
+    category: filters.category,
+    gender: filters.gender,
+    feature: filters.feature,
+    search: debouncedSearch,
+    sort: filters.sort,
+    limit: 18,
     type: 'default',
     autoLoad: activeTab === 'default',
   });
 
   const customHook = useHairstyles({
-    search: debouncedCustomSearch,
-    sort: customFilters.sort,
-    limit: 12,
+    search: debouncedSearch,
+    sort: 'newest',
+    limit: 18,
     type: 'custom',
     autoLoad: activeTab === 'custom',
   });
 
   const currentHook = activeTab === 'default' ? defaultHook : customHook;
-  const currentFilters = activeTab === 'default' ? defaultFilters : customFilters;
 
   useEffect(() => {
     if (activeTab === 'default') {
-      const fetchCategories = async () => {
-        try {
-          const result = await apiService.getHairstyleCategories();
-          if (result.success) {
-            const totalCount = result.data.reduce((sum, cat) => sum + cat.count, 0);
-            const allCategory = { name: 'All', count: totalCount };
-            setCategories([allCategory, ...result.data]);
-          }
-        } catch (error) {
-          console.error('Failed to fetch categories:', error);
+      apiService.getHairstyleCategories().then(result => {
+        if (result.success) {
+          const totalCount = result.data.reduce((sum: number, cat: Category) => sum + cat.count, 0);
+          setCategories([{ name: 'All', count: totalCount }, ...result.data]);
         }
-      };
-      fetchCategories();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'custom') {
-      setIsFilterOpen(false);
+      }).catch(() => {});
     }
   }, [activeTab]);
 
@@ -324,309 +231,265 @@ export default function MobileHairstyleModal({
     onClose();
   }, [canAfford, onHairstyleSelect, onClose]);
 
-  const handleTabChange = useCallback((value: string) => {
-    setActiveTab(value as 'default' | 'custom');
-  }, []);
-
   const handlePageChange = useCallback((newPage: number) => {
     if (newPage >= 1 && newPage <= currentHook.totalPages) {
       currentHook.setPage(newPage);
-      const scrollArea = document.querySelector('.MobileHairstyleModal-scrollArea [data-radix-scroll-area-viewport]');
-      if (scrollArea) {
-        scrollArea.scrollTop = 0;
-      }
+      scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentHook]);
 
-  const updateDefaultFilter = useCallback((key: string, value: string) => {
-    triggerHapticFeedback('light');
-    setDefaultFilters(prev => ({ ...prev, [key]: value }));
-  }, []);
-
-  const updateCustomFilter = useCallback((key: string, value: string) => {
-    triggerHapticFeedback('light');
-    setCustomFilters(prev => ({ ...prev, [key]: value }));
-  }, []);
-
-  const updateFilter = activeTab === 'default' ? updateDefaultFilter : updateCustomFilter;
-
   const genderOptions = ['All', 'Female', 'Male', 'Unisex'];
-  const featureOptions = ['All', 'Basic', 'Trending', 'Premium'];
-  const sortOptions = [
-    { value: 'popularity', label: 'Popularity' },
-    { value: 'newest', label: 'Newest' },
-    { value: 'name', label: 'Name (A-Z)' },
-    { value: 'price', label: 'Price (Low to High)' },
+  const featureOptions = [
+    { value: 'All', label: 'All' },
+    { value: 'Trending', label: '🔥 Trending' },
+    { value: 'Premium', label: '👑 Premium' },
+    { value: 'Basic', label: 'Starter' },
   ];
 
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full mx-auto p-0 gap-0 flex flex-col overflow-hidden',
-          'fixed bottom-0 left-0 right-0 top-auto translate-x-0 translate-y-0',
-          'h-[95vh] rounded-t-3xl border-t-4 border-amber-500',
-          'sm:h-[95vh] sm:max-w-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2',
-          'lg:fixed lg:top-1/2 lg:left-1/2 lg:bottom-auto lg:-translate-x-1/2 lg:-translate-y-1/2',
-          'lg:max-w-4xl lg:h-[95vh] lg:rounded-2xl lg:border-0 lg:shadow-2xl',
-          'xl:max-w-6xl'
-        )}
-      >
-        <DialogHeader className="px-4 py-1 border-b shrink-0 border-amber-500">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-bold text-slate-800 sm:text-lg flex items-center gap-2">
-              Choose a Hairstyle
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                triggerHapticFeedback('light');
-                onClose();
-              }}
-              className="w-10 h-10 rounded-full sm:w-8 sm:h-8"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5 sm:w-4 sm:h-4" />
-            </Button>
-          </div>
-        </DialogHeader>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+          />
 
-        <div className="flex-1 flex flex-col overflow-hidden bg-white">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="shrink-0 grid   grid-cols-2 border border-gray-200 bg-gray-200  mx-4 my-2 h-12 rounded-xl">
-              <TabsTrigger
-                value="default"
-                className="text-sm font-semibold h-9 rounded-lg text-slate-600 transition-all duration-200 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md"
-              >
-                <Palette className="w-4 h-4 mr-1.5" />
-                Default Styles
-              </TabsTrigger>
-              <TabsTrigger
-                value="custom"
-                className="text-sm font-semibold h-8 rounded-lg text-slate-600 transition-all duration-200 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md"
-              >
-                <Upload className="w-4 h-4 mr-1.5" />
-                My Uploads
-              </TabsTrigger>
-            </TabsList>
+          {/* Sheet */}
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 32, stiffness: 350 }}
+            className={cn(
+              'fixed z-50 bg-white flex flex-col overflow-hidden',
+              'inset-x-0 bottom-0 h-[92vh] rounded-t-[24px]',
+              'lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2',
+              'lg:w-full lg:max-w-3xl lg:h-[88vh] lg:rounded-[24px]',
+            )}
+          >
+            {/* ── Handle + Header ─────────────────────────────── */}
+            <div className="flex-shrink-0">
+              <div className="flex justify-center pt-2 pb-0.5">
+                <div className="w-8 h-[3px] rounded-full bg-gray-200" />
+              </div>
 
-            <div className="shrink-0 px-4 space-y-3 bg-slate-50 pb-3">
-             
+              <div className="flex items-center justify-between px-4 py-2">
+                <h2 className="text-[17px] font-bold text-gray-900 tracking-tight">
+                  Choose Style
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-
-              {activeTab === 'default' && (
-                <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                  <div className="flex items-center gap-2 items-center">
-
-               <span className=' w-10 bg-white h-10 rounded-lg border border-gray-200 items-center flex justify-center ' 
-                onClick={()=>setSearchTab(!searchTab)}>
-                 <Search  className="    text-gray-700  pointer-events-none" />
-               </span>
-
-
-                    <Select
-                      value={currentFilters.sort}
-                      onValueChange={(value) => updateFilter('sort', value)}
+              {/* ── Search ─────────────────────────────────────── */}
+              <div className="px-4 pb-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search styles..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-8 pl-8 pr-8 rounded-lg bg-gray-50 text-[13px] text-gray-700 placeholder:text-gray-300 border-0 ring-1 ring-black/[0.04] focus:ring-[#1a1a1a] focus:ring-1 outline-none transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center"
                     >
-                      <SelectTrigger
-                        className="flex-1 h-10 bg-white text-slate-600 font-medium text-base sm:h-9 sm:text-sm"
-                        aria-label="Sort hairstyles"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-1.5">
-                          <SortAsc className="w-5 h-5 sm:w-4 sm:h-4" />
-                          <SelectValue placeholder="Sort by..." />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sortOptions.map((option) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            className="py-2 text-base sm:py-1.5 sm:text-sm"
-                          >
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <X className="w-2.5 h-2.5 text-gray-500" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-base text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-10 px-4 sm:text-sm sm:h-9 sm:px-3 shrink-0"
-                        aria-label="Toggle filters"
-                      >
-                        <Filter className="w-5 h-5 mr-2 sm:w-4 sm:h-4 sm:mr-1.5" />
-                        Filters
-                        <ChevronDown
-                          className={cn(
-                            'w-5 h-5 ml-2 transition-transform duration-200 sm:w-4 sm:h-4 sm:ml-1.5',
-                            isFilterOpen && 'rotate-180'
-                          )}
+              {/* ── Tabs ───────────────────────────────────────── */}
+              <div className="relative px-4">
+                <div className="flex">
+                  {(['default', 'custom'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => { setActiveTab(tab); setSearchQuery(''); }}
+                      className={cn(
+                        'relative pb-2 text-[13px] font-semibold transition-colors duration-200',
+                        tab === 'default' ? 'mr-6' : '',
+                        activeTab === tab
+                          ? 'text-gray-900'
+                          : 'text-gray-300'
+                      )}
+                    >
+                      {tab === 'default' ? 'All Styles' : 'My Uploads'}
+                      {activeTab === tab && (
+                        <motion.div
+                          layoutId="tab-indicator"
+                          className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1a1a1a] rounded-full"
+                          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                         />
-                      </Button>
-                    </CollapsibleTrigger>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="h-px bg-gray-100" />
+              </div>
+
+              {/* ── Filters ────────────────────────────────────── */}
+              {activeTab === 'default' && (
+                <div className="px-4 pt-2 pb-2 space-y-1.5">
+                  {/* Gender + Feature in one row */}
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+                    {genderOptions.map(g => (
+                      <Chip
+                        key={g}
+                        label={g}
+                        active={filters.gender === g}
+                        onClick={() => setFilters(prev => ({ ...prev, gender: g }))}
+                      />
+                    ))}
+                    <div className="w-px h-7 bg-gray-100 flex-shrink-0" />
+                    {featureOptions.map(f => (
+                      <Chip
+                        key={f.value}
+                        label={f.label}
+                        active={filters.feature === f.value}
+                        onClick={() => setFilters(prev => ({ ...prev, feature: f.value }))}
+                      />
+                    ))}
                   </div>
 
-                  <CollapsibleContent className="space-y-4 pt-4">
-                    <div>
-                      <label className="text-sm font-semibold text-slate-700 mb-3 block sm:text-xs sm:mb-2">
-                        Category
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {categories.map((category) => (
-                          <Button
-                            key={category.name}
-                            variant={defaultFilters.category === category.name ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => updateDefaultFilter('category', category.name)}
-                            className="text-sm h-9 px-3 sm:text-xs sm:h-7 sm:px-2.5"
-                          >
-                            {category.name} ({category.count})
-                          </Button>
-                        ))}
-                      </div>
+                  {/* Category row */}
+                  {categories.length > 1 && (
+                    <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+                      {categories.map(cat => (
+                        <Chip
+                          key={cat.name}
+                          label={cat.name === 'All' ? `All (${cat.count})` : cat.name}
+                          active={filters.category === cat.name}
+                          onClick={() => setFilters(prev => ({ ...prev, category: cat.name }))}
+                        />
+                      ))}
                     </div>
-
-                
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-              {searchTab && activeTab === 'default' &&  <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 sm:w-4 sm:h-4 pointer-events-none" />
-                <Input
-                  placeholder={activeTab === 'default' ? 'Search styles...' : 'Search your uploads...'}
-                  value={activeTab === 'default' ? defaultFilters.search : customFilters.search}
-                  onChange={(e) => updateFilter('search', e.target.value)}
-                  className="pl-12 h-11 bg-gray-100 border text-base sm:pl-10 sm:h-10 sm:text-sm rounded-full"
-                  aria-label="Search hairstyles"
-                />
-              </div>}
-
-              {activeTab === 'custom' ? (<div className='space-y-1 mt-1' >
-
-                <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 sm:w-4 sm:h-4 pointer-events-none" />
-                <Input
-                  placeholder={activeTab === 'default' ? 'Search styles...' : 'Search your uploads...'}
-                  value={activeTab === 'default' ? defaultFilters.search : customFilters.search}
-                  onChange={(e) => updateFilter('search', e.target.value)}
-                  className="pl-12 h-11 bg-gray-100 border text-base sm:pl-10 sm:h-10 sm:text-sm rounded-full"
-                  aria-label="Search hairstyles"
-                />
-              </div>
- 
-
+                  )}
                 </div>
-              ): <>
-
-    <div>
-                    
-                      <div className="flex flex-wrap gap-2">
-                        {featureOptions.map((feature) => (
-                          <Button
-                            key={feature}
-                            variant={defaultFilters.feature === feature ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => updateDefaultFilter('feature', feature)}
-                            className="text-sm h-9 px-3 sm:text-xs sm:h-7 sm:px-2.5"
-                          >
-                            {feature === 'Premium' ? (
-                              <span>Premium 🦁</span>
-                            ) : feature === 'Basic' ? (
-                              <span>Novice 🦌</span>
-                            ) : feature === 'Trending' ? (
-                              <span>Trending 🔥</span>
-                            ) : (
-                              'All'
-                            )}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                   
-                      <div className="flex flex-wrap gap-2 ">
-                        {genderOptions.map((gender) => (
-                          <Button
-                            key={gender}
-                            variant={defaultFilters.gender === gender ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => updateDefaultFilter('gender', gender)}
-                            className="text-sm h-9 px-3 sm:text-xs sm:h-7 sm:px-2.5"
-                          >
-                            {gender}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-              </>}
+              )}
             </div>
 
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="default" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <ContentSection
-                  hairstyles={currentHook.hairstyles}
-                  isLoading={currentHook.isLoading}
-                  error={currentHook.error}
-                  selectedHairstyle={selectedHairstyle}
-                  canAfford={canAfford}
-                  handleStyleSelect={handleStyleSelect}
-                  setShowPricing={setShowPricing}
-                />
-              </TabsContent>
+            {/* ── Grid Content ──────────────────────────────── */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
+              {/* Loading */}
+              {currentHook.isLoading && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <CardSkeleton key={i} />
+                  ))}
+                </div>
+              )}
 
-              <TabsContent value="custom" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-                <ContentSection
-                  hairstyles={currentHook.hairstyles}
-                  isLoading={currentHook.isLoading}
-                  error={currentHook.error}
-                  selectedHairstyle={selectedHairstyle}
-                  canAfford={canAfford}
-                  handleStyleSelect={handleStyleSelect}
-                  setShowPricing={setShowPricing}
-                />
-              </TabsContent>
+              {/* Error */}
+              {currentHook.error && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                    <X className="w-4.5 h-4.5 text-red-400" />
+                  </div>
+                  <p className="text-[13px] font-semibold text-gray-800">
+                    Couldn&apos;t load styles
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5 text-center max-w-[200px]">
+                    Check your connection and try again
+                  </p>
+                  <button
+                    onClick={() => currentHook.setPage(currentHook.currentPage)}
+                    className="mt-4 h-8 px-4 rounded-full bg-[#1a1a1a] text-white text-[11px] font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Results */}
+              {!currentHook.isLoading && !currentHook.error && (
+                <>
+                  {currentHook.hairstyles.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <AnimatePresence mode="popLayout">
+                        {currentHook.hairstyles.map(hairstyle => (
+                          <StyleCard
+                            key={hairstyle._id}
+                            hairstyle={hairstyle}
+                            isSelected={selectedHairstyle?._id === hairstyle._id}
+                            canAfford={canAfford(hairstyle.price)}
+                            onSelect={() => handleStyleSelect(hairstyle)}
+                            onShowPricing={() => setShowPricing(true)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <div className="w-11 h-11 rounded-full bg-gray-50 flex items-center justify-center mb-3">
+                        <Search className="w-4.5 h-4.5 text-gray-300" />
+                      </div>
+                      <p className="text-[13px] font-semibold text-gray-800">No styles found</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Try different filters</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
+            {/* ── Pagination ────────────────────────────────── */}
             {!currentHook.isLoading && currentHook.totalPages > 1 && (
-              <div className="shrink-0 px-4 py-1 border-t border-slate-200 flex items-center justify-between bg-white">
-                <Button
-                  variant="outline"
-                  size="sm"
+              <div className="flex-shrink-0 px-4 py-2 border-t border-gray-100 flex items-center justify-between bg-white">
+                <button
                   onClick={() => handlePageChange(currentHook.currentPage - 1)}
                   disabled={currentHook.currentPage === 1}
-                  className="h-9 px-3 text-sm"
-                  aria-label="Previous page"
+                  className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center disabled:opacity-25 transition-opacity active:scale-95"
                 >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Prev
-                </Button>
-                
-                <span className="text-sm font-medium" aria-live="polite">
-             
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
+                  <ChevronLeft className="w-4 h-4 text-gray-600" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(currentHook.totalPages, 5) }).map((_, i) => {
+                    const page = currentHook.totalPages <= 5
+                      ? i + 1
+                      : Math.max(1, Math.min(currentHook.currentPage - 2, currentHook.totalPages - 4)) + i;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={cn(
+                          'w-7 h-7 rounded-full text-[11px] font-semibold transition-all',
+                          currentHook.currentPage === page
+                            ? 'bg-[#1a1a1a] text-white'
+                            : 'text-gray-400 hover:bg-gray-50'
+                        )}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
                   onClick={() => handlePageChange(currentHook.currentPage + 1)}
                   disabled={currentHook.currentPage === currentHook.totalPages}
-                  className="h-9 px-3 text-sm border border-gray-200"
-                  aria-label="Next page"
+                  className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center disabled:opacity-25 transition-opacity active:scale-95"
                 >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
+                </button>
               </div>
             )}
-          </Tabs>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
