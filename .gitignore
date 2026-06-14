@@ -46,6 +46,13 @@ google-services.json
 hair-studio-a9654-firebase-adminsdk-fbsvc-d632781b15.json
 afro-ai-473921-fc6ff01dda3c.json
 
+# Android release signing (NEVER COMMIT — keystore + passwords)
+key-store
+/key-store
+*.keystore
+*.jks
+android/keystore.properties
+
 # 3. Runtime, Logs, and Temporary Files
 #######################################
 # Logs

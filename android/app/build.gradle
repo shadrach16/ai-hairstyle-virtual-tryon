@@ -6,10 +6,17 @@ android {
     
     signingConfigs {
         release {
-            storeFile file("../../key-store")
-            storePassword "Shadrach16.com"
-            keyAlias "key0"
-            keyPassword "Shadrach16.com"
+            // Credentials are loaded from android/keystore.properties (gitignored).
+            // Copy keystore.properties.example and fill it in to build a release.
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                def keystoreProperties = new Properties()
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
         }
     }
     
