@@ -138,7 +138,7 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({
         if (!isPro) {
           ctx.fillStyle = 'rgba(0,0,0,0.4)';
           ctx.font = '14px system-ui, -apple-system, sans-serif';
-          ctx.fillText('Made with Hair Studio AI', canvas.width / 2, canvas.height - 12);
+          ctx.fillText('Made with Hair Studio AI  ·  @ShadHairStudio', canvas.width / 2, canvas.height - 12);
         }
         if (selectedHairstyle?.name) {
           ctx.fillStyle = '#1a1a1a';
@@ -180,6 +180,7 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({
         const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path: fn });
         toast.dismiss(tid);
         await Share.share({ title, text, dialogTitle: 'Share Transformation', files: [uri] });
+        apiService.trackEvent('shared', { surface: 'collage', hairstyle: selectedHairstyle?.name, channel: '@ShadHairStudio' }).catch(() => {});
         setTimeout(async () => { try { await Filesystem.deleteFile({ path: fn, directory: Directory.Cache }); } catch {} }, 2000);
       } else {
         const file = new File([blob], 'transformation.jpg', { type: 'image/jpeg' });
@@ -215,6 +216,7 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({
         const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path: fn });
         toast.dismiss(tid);
         await Share.share({ title, text, dialogTitle: 'Share New Look', files: [uri] });
+        apiService.trackEvent('shared', { surface: 'result', hairstyle: selectedHairstyle?.name, channel: '@ShadHairStudio' }).catch(() => {});
         setTimeout(async () => { try { await Filesystem.deleteFile({ path: fn, directory: Directory.Cache }); } catch {} }, 2000);
         return;
       }

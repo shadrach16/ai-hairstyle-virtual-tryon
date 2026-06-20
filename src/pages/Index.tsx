@@ -52,6 +52,7 @@ export default function StudioPage() {
     selectedPhoto,
     selectedHairstyle,
     showPricing,
+    paywallContext,
     downloadLoading,
     showMobileGallery,
     showOnboarding,
@@ -428,6 +429,7 @@ export default function StudioPage() {
         isOpen={showPricing}
         onClose={() => setShowPricing(false)}
         onOpenRewards={() => setShowRewardsCenter(true)}
+        context={paywallContext}
       />
 
       <RewardsCenterModal

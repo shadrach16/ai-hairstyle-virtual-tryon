@@ -19,6 +19,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
 import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app';
 import AppLoader from '@/components/AppLoader';
+import { captureAttribution, reportInstallOnce, shouldCheckInstallReferrer, markInstallReferrerChecked } from '@/lib/attribution';
+import { readInstallReferrer } from '@/lib/installReferrer';
 
 
 const queryClient = new QueryClient();
@@ -173,8 +175,16 @@ const AppRoutes = () => {
     const url = new URL(urlString);
     const refCode = url.searchParams.get('ref');
     storeReferralCode(refCode, `${source} URL`);
+    // Capture UTM/campaign(video)/content(artifact) and stash the pending target.
+    captureAttribution(urlString, 'deep_link');
     const path = url.pathname;
-    if (path === '/profile') {
+    // Network deep link: https://<host>/go?content=<id>... or hairstudio://go?...
+    const isGoLink = path === '/go' || path.startsWith('/go') || url.host === 'go';
+    if (isGoLink) {
+     // Pending hairstyle target + ref are already persisted; send the user to the
+     // studio, which routes to the referenced look and shows the contextual paywall.
+     navigate('/');
+    } else if (path === '/profile') {
      navigate('/profile');
     } else if (path.startsWith('/product/')) {
      const productId = path.split('/')[2];
@@ -213,11 +223,30 @@ const AppRoutes = () => {
      .catch(e => console.error("[AppRoutes Effect] Error getting launch URL:", e));
    }
 
+   // D) First-open attribution: read the Play install referrer (DEFERRED deep
+   //    linking — survives the install), then report install_attributed once.
+   (async () => {
+    try {
+     if (shouldCheckInstallReferrer()) {
+      const referrer = await readInstallReferrer();
+      markInstallReferrerChecked();
+      if (referrer) captureAttribution(referrer, 'install_referrer');
+      await reportInstallOnce(referrer ? { rawReferrer: referrer, method: 'install_referrer' } : undefined);
+     } else {
+      await reportInstallOnce();
+     }
+    } catch (e) {
+     console.warn('[Attribution] first-open report failed', e);
+    }
+   })();
+
   } else {
    try {
     const currentUrl = new URL(window.location.href);
     const refCode = currentUrl.searchParams.get('ref');
-     
+    // Capture UTM/campaign(video)/content(artifact) from the web URL.
+    captureAttribution(window.location.href, 'first_launch_url');
+
     if (refCode) {
      storeReferralCode(refCode, 'Web URL');
      // Clean URL without reloading page
@@ -227,6 +256,8 @@ const AppRoutes = () => {
     } else {
      console.log('[AppRoutes Effect] No refCode found in web URL.');
     }
+    // Report the (web) install/visit once.
+    reportInstallOnce();
    } catch (e) {
     console.error('[AppRoutes Effect] Error parsing web URL:', e);
    }

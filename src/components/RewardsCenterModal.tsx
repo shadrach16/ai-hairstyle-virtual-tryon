@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { AdService } from '@/lib/adService';
 import { apiService, type CreditLedgerResponse, type CreditLedgerTransaction } from '@/lib/api';
+import { buildReferralLink } from '@/lib/attribution';
 import { cn } from '@/lib/utils';
 import AuthModal from '@/components/AuthModal';
 import {
@@ -190,7 +192,8 @@ function ReferralTab({ isAuthenticated, onAuthClick }: { isAuthenticated: boolea
     };
   }, [isAuthenticated]);
 
-  const link = info?.referralCode ? `${appUrl}/?ref=${info.referralCode}` : appUrl;
+  // Deep link (deferred-install aware) so referrals route to the app or Play Store w/ referrer.
+  const link = info?.referralCode ? buildReferralLink(info.referralCode) : appUrl;
 
   const handleCopy = async () => {
     try {
@@ -206,13 +209,125 @@ function ReferralTab({ isAuthenticated, onAuthClick }: { isAuthenticated: boolea
     toast.error('Clipboard is not available on this device.');
   };
 
-  const handleShare = async () => {
+  const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  };
+
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(((reader.result as string) || '').split(',')[1] || '');
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+  // Branded invite card (matches app amber/charcoal, leads with the textured-hair intent).
+  const buildInviteCard = async (code: string): Promise<Blob | null> => {
     try {
-      await Share.share({
-        title: 'Try Hair Studio',
-        text: `Try Hair Studio with my referral link and get free credits: ${link}`,
-        url: link,
-      });
+      const W = 1080, H = 1350;
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      const cx = W / 2;
+
+      // Charcoal background + warm amber glow
+      ctx.fillStyle = '#0E0E10';
+      ctx.fillRect(0, 0, W, H);
+      const glow = ctx.createRadialGradient(cx, 240, 40, cx, 240, 760);
+      glow.addColorStop(0, 'rgba(245,158,11,0.40)');
+      glow.addColorStop(1, 'rgba(245,158,11,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.textAlign = 'center';
+
+      // Wordmark
+      ctx.fillStyle = '#F59E0B';
+      ctx.font = '800 42px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('💇  HAIR STUDIO', cx, 175);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '700 24px system-ui, sans-serif';
+      ctx.fillText('A I   T R Y - O N', cx, 218);
+
+      // Headline (intent)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 70px system-ui, sans-serif';
+      ctx.fillText('Try braids, locs', cx, 408);
+      ctx.fillText('& fades on your', cx, 490);
+      ctx.fillText('selfie', cx, 572);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '400 31px system-ui, sans-serif';
+      ctx.fillText('See any hairstyle on you — before the salon.', cx, 650);
+
+      // Invite-code card (amber gradient)
+      const cardX = 130, cardY = 770, cardW = W - 260, cardH = 300, r = 44;
+      const g = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+      g.addColorStop(0, '#FBBF24');
+      g.addColorStop(1, '#D97706');
+      roundRect(ctx, cardX, cardY, cardW, cardH, r);
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.font = '800 28px system-ui, sans-serif';
+      ctx.fillText('YOUR INVITE CODE', cx, cardY + 80);
+      ctx.fillStyle = '#16130A';
+      ctx.font = '900 96px system-ui, sans-serif';
+      ctx.fillText(code, cx, cardY + 188);
+      ctx.fillStyle = 'rgba(0,0,0,0.72)';
+      ctx.font = '600 30px system-ui, sans-serif';
+      ctx.fillText('🎁  You both get free credits', cx, cardY + 252);
+
+      // Footer
+      ctx.fillStyle = '#F59E0B';
+      ctx.font = '800 36px system-ui, sans-serif';
+      ctx.fillText('@ShadHairStudio', cx, 1210);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '500 27px system-ui, sans-serif';
+      ctx.fillText('Tap the link to get the app', cx, 1256);
+
+      return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/png', 0.95));
+    } catch {
+      return null;
+    }
+  };
+
+  const handleShare = async () => {
+    const code = info?.referralCode;
+    const shareText = code
+      ? `Try Hair Studio — braids, locs & fades on your selfie with AI. Use my code ${code} and we both get free credits: ${link}`
+      : `Try Hair Studio with my referral link and get free credits: ${link}`;
+    try {
+      const blob = code ? await buildInviteCard(code) : null;
+
+      if (blob && Capacitor.isNativePlatform()) {
+        const b64 = await blobToBase64(blob);
+        const fn = `hairstudio_invite_${Date.now()}.png`;
+        await Filesystem.writeFile({ path: fn, data: b64, directory: Directory.Cache });
+        const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path: fn });
+        await Share.share({ title: 'Try Hair Studio', text: shareText, url: link, files: [uri], dialogTitle: 'Invite a friend' });
+        setTimeout(async () => { try { await Filesystem.deleteFile({ path: fn, directory: Directory.Cache }); } catch {} }, 3000);
+        return;
+      }
+
+      if (blob && (navigator as any).share) {
+        const file = new File([blob], 'hairstudio_invite.png', { type: 'image/png' });
+        if ((navigator as any).canShare?.({ files: [file] })) {
+          await (navigator as any).share({ title: 'Try Hair Studio', text: shareText, url: link, files: [file] });
+          return;
+        }
+      }
+
+      // Text-only fallback when image sharing isn't supported.
+      await Share.share({ title: 'Try Hair Studio', text: shareText, url: link });
     } catch {
       await handleCopy();
     }

@@ -29,6 +29,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Custom-scheme deep links: hairstudio://go?content=...&utm_source=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hairstudio" />
+            </intent-filter>
+
+            <!-- Verified Android App Links: https://213-136-65-247.sslip.io/go?... -->
+            <!-- Requires /.well-known/assetlinks.json on the host (served by backend). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="213-136-65-247.sslip.io" android:pathPrefix="/go" />
+            </intent-filter>
         </activity>
 
         <provider

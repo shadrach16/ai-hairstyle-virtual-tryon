@@ -23,9 +23,10 @@ interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenRewards?: () => void; // C4: Bridge to rewards center
+  context?: any; // deep-linked hairstyle for a contextual paywall banner
 }
 
-export default function PricingModal({ isOpen, onClose, onOpenRewards }: PricingModalProps) {
+export default function PricingModal({ isOpen, onClose, onOpenRewards, context }: PricingModalProps) {
   const { user, isAuthenticated } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -106,7 +107,7 @@ export default function PricingModal({ isOpen, onClose, onOpenRewards }: Pricing
               {/* ── Packs ────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4">
                 {Capacitor.isNativePlatform() ? (
-                  <PaywallScreen onClose={onClose} />
+                  <PaywallScreen onClose={onClose} context={context} />
                 ) : (
                   <WebPaywallScreen onClose={onClose} userId={user?.id} />
                 )}

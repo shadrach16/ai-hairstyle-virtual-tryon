@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getPendingTarget, clearPendingTarget } from '@/lib/attribution';
 
 // ✅ CAPACITOR IMPORTS
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -118,6 +119,7 @@ export const useStudioPageLogic = () => {
   const [selectedHairstyle, setSelectedHairstyle] = useState<any>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
   const [showPricing, setShowPricing] = useState(false);
+  const [paywallContext, setPaywallContext] = useState<any>(null); // deep-linked hairstyle -> contextual paywall
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [showMobileGallery, setShowMobileGallery] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -139,6 +141,22 @@ export const useStudioPageLogic = () => {
 
   const isNative = useMemo(() => Capacitor.isNativePlatform(), []);
   const isMobile = useMemo(() => window.innerWidth < 1024, []);
+
+  // Deep-link landing: a tap from "Shad Hair Studio" content routes to the
+  // referenced hairstyle and opens the CONTEXTUAL paywall tied to that result.
+  useEffect(() => {
+    const targetId = getPendingTarget();
+    if (!targetId || !hairstyles || hairstyles.length === 0) return;
+    const match = hairstyles.find(
+      (h: any) => h?._id === targetId || h?.id === targetId || h?.slug === targetId
+    );
+    clearPendingTarget(); // had our chance to match; don't retry forever
+    if (match) {
+      setSelectedHairstyle(match);
+      setPaywallContext(match);
+      setShowPricing(true);
+    }
+  }, [hairstyles]);
 
   // Onboarding Effect - Show on first launch
   useEffect(() => {
@@ -961,6 +979,7 @@ setSelectedHairstyle()
     refreshUser,
     hairstyles,
     hairstylesLoading,
+    paywallContext,
     isGenerating,
     generationId,
     generationStatus,

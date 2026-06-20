@@ -30,7 +30,7 @@ const productMatches = (identifier: string, productId?: string): boolean =>
 
 type PaywallTab = 'credits' | 'subscriptions';
 
-export const PaywallScreen: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const PaywallScreen: React.FC<{ onClose: () => void; context?: any }> = ({ onClose, context }) => {
     const { 
         storeReady, 
         isCatalogLoading,
@@ -110,6 +110,17 @@ export const PaywallScreen: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
     return (
         <div className="flex flex-col gap-3">
+            {/* Contextual banner when arriving via a deep link to a specific look */}
+            {context?.name && (
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl p-2.5">
+                    {context.thumbnail && (
+                        <img src={context.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    )}
+                    <p className="text-[13px] text-gray-700 leading-snug">
+                        Unlock <span className="font-semibold text-gray-900">{context.name}</span> — pick a pack to try it on your photo.
+                    </p>
+                </div>
+            )}
             {/* Tab Switcher — only show if subscriptions exist */}
             {hasSubscriptions && (
                 <div className="flex bg-gray-100 rounded-xl p-1" role="tablist" aria-label="Payment options">
